@@ -10,48 +10,50 @@
 # TODO revise fakeness
 #
 # round 2 :
-# TODO handle wrong command line switches
+# DONE handle wrong command line switches
 # WONTFIX support scp --> does not allow mkdir...
-# TODO remove temporary files
+# TODO remove temporary files in /tmp
 # TODO include information about oneshot into html listing
 # WONTFIX warn multiple files same name
-# TODO handle spaces in filenames, remove(?) sftp does not like them
+# DONE handle spaces in filenames, remove(?) sftp does not like them
 # TODO above applies for descpription used in URL, too. its ok on html-list, though
 # TODO make nicer output (listing html)
-# TODO DONE make nicer output (console)
-# TODO DONE allow keyboard auth
+# DONE make nicer output (console)
+# DONE allow keyboard auth
 # TODO revise sftp return code handling
 # TODO revise sftp output redirection
-# TODO allow generation of config-file
-# TODO if local = folder -> warn, let shell glob!
+# DONE allow generation of config-file
+# TODO if local == folder -> warn, let shell glob!
 # TODO make remote files world-readable...
-# TODO more verbose help, naming files, usage, ... flattening of path
-# TODO check if any files...
+# TODO manpages covering: naming files, usage, ... flattening of path
+# DONE check if any files...
 # TODO handle local files with spaces... cant be read because already escaped...
+# TODO generate serverside cleanup tool, removing files that exceed ttl
 # 
 # round 3 :
-# TODO fail if there is no input file...
-
-# delayed: 
-# TODO generate cleanup tool
+# DONE fail if there is no input file...
+# TODO disallow executing uploaded scripts on server...
+# TODO dont delete listings with files, but keep meta info
 
 require 'digest/sha1'
 require 'time'
+require 'date'
 
 LOG_ERROR		= -1
 LOG_OUTPUT      =  0
 LOG_INFO		=  1
 LOG_DEBUG		=  2
 
-THEVERSION = "0.0.3"
+THEVERSION = "0.0.5"
+DATEFORMAT = "%Y-%m-%d@%H:%M:%S"
 
 def log string, loglevel
   puts string unless @options.verbosity < loglevel
 end
 
 def pad pre, char, post, len
-	pre = '' if pre.nil?
-	post = '' if post.nil?
+  pre = '' if pre.nil?
+  post = '' if post.nil?
   return pre + char * [len - pre.length - post.length, 0].max + post
 end
 
@@ -84,11 +86,65 @@ def shellescape(str)
 end
 
 def asciify string
-	return string.tr("^A-Za-z0-9_.\-", "_")
+  return string.tr("^A-Za-z0-9_.\-", "_")
+end
+
+def datify time
+  # feel the pain!
+  Date.strptime(time.strftime(DATEFORMAT), DATEFORMAT)
 end
 
 @options = Struct.new(:title, :ttl, :configfile, :verbosity, :fakeness,
   :host, :user, :port, :prefix, :httppre).new
+
+def serverside_check val
+  begin
+    
+    Dir.new(val).sort {|a,b| a.to_s <=> b.to_s}.each { |datefolder|
+      next if ['.', '..'].include?(datefolder)
+      datefolder = File.join(val, datefolder)
+      log datefolder, LOG_DEBUG
+      
+      Dir.new(datefolder).sort {|a,b| a.to_s <=> b.to_s}.each { |titlefolder|
+        next if ['.', '..'].include?(titlefolder)
+        titlefolder = File.join(datefolder, titlefolder)
+        log titlefolder, LOG_DEBUG
+        
+        Dir.new(titlefolder).sort {|a,b| a.to_s <=> b.to_s}.each { |hashfolder|
+          next if ['.', '..'].include?(hashfolder)
+          hashfolder = File.join(titlefolder, hashfolder)
+          log hashfolder, LOG_DEBUG
+          
+          path = hashfolder + "/.oneshot-expiry"      
+          log "scanning " + path, LOG_INFO
+          
+          begin
+            file = File.new(path, "r")
+            date = file.gets
+            log "best before: " + date, LOG_INFO
+            
+            date = Date.strptime(date, DATEFORMAT)
+            ttl = (datify(Time.now) - date).to_i
+            if ttl > 0
+              puts 'thats ' + ttl.to_s + ' days ago'
+            else
+              puts 'thats still ' + (- ttl).to_s + ' days to go...'
+            end
+
+          rescue => exc 
+            log "error opening " + path, LOG_ERROR
+            STDERR.puts exc.backtrace
+            STDERR.puts exc.message
+          end
+        }
+      }
+    }
+    
+  rescue => exc
+    log "error scanning for outdated files. are you scanning a oneshot repo?", LOG_ERROR
+    STDERR.puts exc.backtrace
+  end
+end
 
 def options_per_default
   @options.title			= nil
@@ -107,7 +163,7 @@ def create_new_config
   file = <<EOT
 # put the following in your ~/.oneshot-cfg.rb (change as needed, of course)
 # the file is not created automatically, but you can use shell redirection if you want :)
-# created by oneshot #{THEVERSION} on #{Time.now.strftime("%Y-%m-%d %H:%M:%S")}
+# created by oneshot #{THEVERSION} on #{Time.now.strftime(DATEFORMAT)}
 #
 @options.title = 'untitled' if @options.title.nil?
 # @options.ttl = 30
@@ -127,14 +183,15 @@ Switch = Struct.new(:char, :comm, :args, :code)
 
 def options_from_file filename
   begin
-		log "gonna load config file", LOG_DEBUG
-		log "config file not found", LOG_ERROR unless File.exist?(filename)
-		if File.exist?(filename)
-			load filename
-			log "loaded config file", LOG_INFO
-		end
+    log "gonna load config file", LOG_DEBUG
+    log "config file not found", LOG_ERROR unless File.exist?(filename)
+    if File.exist?(filename)
+      load filename
+      log "loaded config file", LOG_INFO
+    end
   rescue => exc # FIXME does not seem to work when removing the file.exists?
-		log "error loading config file", LOG_ERROR
+    log "error loading config file", LOG_ERROR
+    STDERR.puts exc.backtrace
   end
 end
 
@@ -143,54 +200,57 @@ def options_from_cmd
 
   currentTransfer = Transfer.new()
   @transfers = []
-	switches = nil # for scoping
-	@helpswitch = Switch.new('h', 'print help message',	false, proc { switches.each { |e| puts '-' + e.char + "\t" + e.comm }; Process.exit })
-	switches = [
-		Switch.new('f', 'specify remote filename for next file',	true, proc { |val| currentTransfer.path_remote = val }),
-		Switch.new('d', 'specify remote description for next file', true, proc { |val| currentTransfer.description = val }),
-		Switch.new('t', 'specify title used in URL',				true, proc { |val| @options.title = val }),
+  switches = nil # for scoping
+  @helpswitch = Switch.new('h', 'print help message',	false, proc { switches.each { |e| puts '-' + e.char + "\t" + e.comm }; Process.exit })
+  switches = [
+    Switch.new('f', 'specify remote filename for next file',	true, proc { |val| currentTransfer.path_remote = val }),
+    Switch.new('d', 'specify remote description for next file', true, proc { |val| currentTransfer.description = val }),
+    Switch.new('t', 'specify title used in URL',				true, proc { |val| @options.title = val }),
 
-		Switch.new('x', 'specify ttl, remote file can be deleted then', true, proc { |val| @options.ttl = val }),
+    Switch.new('x', 'specify ttl, remote file can be deleted then', true, proc { |val| @options.ttl = val }),
 
-		Switch.new('c', 'specify local configfile', true, proc { |val| @options.configfile = val }),
+    Switch.new('c', 'specify local configfile', true, proc { |val| @options.configfile = val }),
 
-		Switch.new('o', 'specify sftp host',        	true, proc { |val| @options.host = val }),
-		Switch.new('u', 'specify sftp user',			true, proc { |val| @options.user = val }),
-		Switch.new('l', 'specify remote base location',	true, proc { |val| @options.prefix = val }),
-		Switch.new('p', 'specify sftp port',			true, proc { |val| @options.port = val }),
+    Switch.new('o', 'specify sftp host',        	true, proc { |val| @options.host = val }),
+    Switch.new('u', 'specify sftp user',			true, proc { |val| @options.user = val }),
+    Switch.new('l', 'specify remote base location',	true, proc { |val| @options.prefix = val }),
+    Switch.new('p', 'specify sftp port',			true, proc { |val| @options.port = val }),
 
-		Switch.new('e', 'specify http prefix',	true, proc { |val| @options.httppre = val }),
+    Switch.new('e', 'specify http prefix',	true, proc { |val| @options.httppre = val }),
 
-		Switch.new('v', 'increase verbosity',	false, proc { @options.verbosity += 1 }),
-		Switch.new('w', 'increase fakeness',	false, proc { @options.fakeness += 1 }),
+    Switch.new('v', 'increase verbosity',	false, proc { @options.verbosity += 1 }),
+    Switch.new('w', 'increase fakeness',	false, proc { @options.fakeness += 1 }),
 		
-		Switch.new('i', 'create new config file',   false, proc { log(create_new_config, 0) ; Process.exit }),
-		@helpswitch
-	]
+    Switch.new('i', 'create new config file',   false, proc { log(create_new_config, LOG_OUTPUT) ; Process.exit }),
+    Switch.new('s', 'run serverside test, searching outdated files',    true, proc { |val| serverside_check val ; Process.exit }),
+    @helpswitch
+  ]
 
-  onfile = proc { |filename| currentTransfer.path_local = filename; @transfers << currentTransfer; currentTransfer = Transfer.new()}
-
+  onfile = proc { |filename| currentTransfer.path_local = filename; @transfers << currentTransfer; currentTransfer = Transfer.new()};
+  onstuff = proc {|someswitch| log "there is no switch '#{someswitch}'\n\n", LOG_ERROR; @helpswitch.code.call; Process.exit };
+  
+  
   notargs = [] 
 
   ARGV.each_index { |i|
-		next if notargs.include?(i)
+    next if notargs.include?(i)
 
-		arg = ''.replace(ARGV[i]) #FIXME: unfreeze
+    arg = ''.replace(ARGV[i]) #FIXME: unfreeze
 
-		if arg[0..0] == '-'
-			arg[1..-1].scan(/./) do |chr|
-				myswitch = switches.find {|s| s.char == chr}
-				myswitch = @helpswitch if myswitch.nil?
-				if myswitch.args
-					myswitch.code.call(ARGV[i+1])
-					notargs << i+1
-				else
-					myswitch.code.call
-				end
-			end
-		else
-			onfile.call(ARGV[i])	  
-		end
+    if arg[0..0] == '-'
+      arg[1..-1].scan(/./) do |chr|
+        myswitch = switches.find {|s| s.char == chr}
+        onstuff.call(chr) if myswitch.nil? 
+        if myswitch.args
+          myswitch.code.call(ARGV[i+1])
+          notargs << i+1
+        else
+          myswitch.code.call
+        end
+      end
+    else
+      onfile.call(ARGV[i])	  
+    end
   }
 end
 
@@ -217,16 +277,16 @@ end
 def print_options
   log "options:\n", LOG_INFO
   @options.each_pair { |name, val|
-		name = name.to_s
-		val = val.to_s
-		log pad(name, ' ', nil, 10) + " = " + val.to_s, LOG_INFO
+    name = name.to_s
+    val = val.to_s
+    log pad(name, ' ', nil, 10) + " = " + val.to_s, LOG_INFO
   }
   
   @transfers.each { |t| 
-		tmp  = 'upload: '		+ quote(t.path_local)
-		tmp += ' goes to '	+ quote(t.path_remote) unless t.path_remote.nil? 
-		tmp += ' tagged '		+ quote(t.description) unless t.description.nil? 
-		log tmp, LOG_INFO
+    tmp  = 'upload: '		+ quote(t.path_local)
+    tmp += ' goes to '	+ quote(t.path_remote) unless t.path_remote.nil? 
+    tmp += ' tagged '		+ quote(t.description) unless t.description.nil? 
+    log tmp, LOG_INFO
   }
 end
 
@@ -243,12 +303,12 @@ def create_sftp_commands tfn, ttlname
   cmds += "mkdir #{hsh}\n"
   cmds += "cd #{hsh}\n"
 	
-	prefix = @options.httppre + date + '/' + @options.title + '/' + hsh + '/'
+  prefix = @options.httppre + date + '/' + @options.title + '/' + hsh + '/'
 	
   @transfers.each { |t|
-		cmds += "put #{t.path_local} #{t.path_remote}\n"
-		cmds += "chmod 644 #{t.path_remote}\n"
-		t.url_http = prefix + t.path_remote
+    cmds += "put #{t.path_local} #{t.path_remote}\n"
+    cmds += "chmod 644 #{t.path_remote}\n"
+    t.url_http = prefix + t.path_remote
   }
   
   cmds += "put #{tfn} index.htm\n"
@@ -261,7 +321,7 @@ def create_sftp_commands tfn, ttlname
 end
 
 def generate_dir_list_helper subject, table
-<<EOT
+  <<EOT
 <?xml version="1.0" ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -291,33 +351,33 @@ EOT
 end
 
 def generate_dir_list expiry
-	table = @transfers.map { |t|
-		temp = ''
-		temp += '<h2><a href="' + t.path_remote + '">' + t.path_remote + '</a></h2>'
+  table = @transfers.map { |t|
+    temp = ''
+    temp += '<h2><a href="' + t.path_remote + '">' + t.path_remote + '</a></h2>'
 	
-		temp +='<ul>'
+    temp +='<ul>'
 		
-		temp += '<li>' + t.description + '</li>' unless t.description.nil?
+    temp += '<li>' + t.description + '</li>' unless t.description.nil?
 		
-		date = Time.now.strftime("%Y-%m-%d %H:%M:%S")
-		date2 = expiry.strftime("%Y-%m-%d %H:%M:%S")
-		temp += '<li>uploaded: ' + date + '</li>'
-		temp += '<li>min. online until: ' + date2 + '</li>'
+    date = Time.now.strftime(DATEFORMAT)
+    date2 = expiry.strftime(DATEFORMAT)
+    temp += '<li>uploaded: ' + date + '</li>'
+    temp += '<li>min. online until: ' + date2 + '</li>'
 
-		hash = "sha1: " + Digest::SHA1.hexdigest(File.read(t.path_local))
-		temp += '<li>' + hash + '</li>'
+    hash = "sha1: " + Digest::SHA1.hexdigest(File.read(t.path_local))
+    temp += '<li>' + hash + '</li>'
 		
-		temp += "</ul>\n"
+    temp += "</ul>\n"
   }
 	
-	result = generate_dir_list_helper @options.title, table
+  result = generate_dir_list_helper @options.title, table
 	
   log result, LOG_DEBUG
   return result
 end
 
 def run_sftp commands
-	real_command = "sftp -C #{@options.host}#{':' + @options.prefix} 1> /dev/null 2>/dev/null << #{commands}"
+  real_command = "sftp -C #{@options.host}#{':' + @options.prefix} 1> /dev/null 2>/dev/null << #{commands}"
   log real_command, LOG_INFO
   log '### oneshot: calling sftp ###', LOG_DEBUG
   system real_command if @options.fakeness == 0
@@ -327,11 +387,11 @@ def run_sftp commands
   log "SFTP ERROR!!!", LOG_ERROR unless state == 0 
   log '----- ----- ----- -----', LOG_INFO
 	  
-	@transfers.each { |t|
-		log t.url_http, LOG_INFO
+  @transfers.each { |t|
+    log t.url_http, LOG_INFO
   } if state == 0
 	
-	return state
+  return state
 end
 
 begin
@@ -342,25 +402,25 @@ begin
   sanatize_options
   print_options
 	
-	if @transfers.empty?
-		log "found no files to transfer\n\n", LOG_ERROR
-		@helpswitch.code.call	
+  if @transfers.empty?
+    log "found no files to transfer\n\n", LOG_ERROR
+    @helpswitch.code.call	
   end
   
-	tempfile_list = tempfilename
+  tempfile_list = tempfilename
   tempfile_expire = tempfilename + '.ttl'
   
   expiry = Time.now + @options.ttl.to_f * 60 * 60 * 24
-  log "expires on " + expiry.strftime("%Y-%m-%d-%H:%M:%S"), LOG_INFO
+  log "expires on " + expiry.strftime(DATEFORMAT), LOG_INFO
   
   sftp_commands = create_sftp_commands tempfile_list, tempfile_expire
   htmllist = generate_dir_list expiry
   
   File.open(tempfile_list, 'w+') { |f| f.puts htmllist } 
-  File.open(tempfile_expire, 'w+') { |f| f.puts expiry } 
+  File.open(tempfile_expire, 'w+') { |f| f.puts expiry.strftime(DATEFORMAT) } 
 	
-	state = -1
-	state = run_sftp sftp_commands
+  state = -1
+  state = run_sftp sftp_commands
   log @idxrem, LOG_OUTPUT if state == 0
 	
 rescue => exc
