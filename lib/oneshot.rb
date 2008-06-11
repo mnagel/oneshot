@@ -28,7 +28,7 @@
 # TODO manpages covering: naming files, usage, ... flattening of path
 # DONE check if any files...
 # TODO handle local files with spaces... cant be read because already escaped...
-# TODO generate serverside cleanup tool, removing files that exceed ttl
+# DONE generate serverside cleanup tool, removing files that exceed ttl
 # 
 # round 3 :
 # DONE fail if there is no input file...
@@ -44,8 +44,8 @@ LOG_OUTPUT      =  0
 LOG_INFO		=  1
 LOG_DEBUG		=  2
 
-THEVERSION = "0.0.5"
-DATEFORMAT = "%Y-%m-%d@%H:%M:%S"
+THEVERSION = "0.0.6"
+DATEFORMAT = "%Y-%m-%d %H:%M:%S"
 
 def log string, loglevel
   puts string unless @options.verbosity < loglevel
@@ -61,9 +61,18 @@ def quote string
   return '"' + string + '"'
 end
 
+def showexc exc
+  STDERR.puts exc.message
+  STDERR.puts exc.backtrace
+end
+
 def tempfilename
   hsh = Digest::SHA1.hexdigest(rand(2**32).to_s).slice(0..7)
   return "/tmp/oneshot-#{hsh}.htm"
+end
+
+def emptydir? dirname
+  return Dir.entries(dirname).size == 2
 end
 
 # file lib/shellwords.rb, line 69
@@ -116,33 +125,55 @@ def serverside_check val
           log hashfolder, LOG_DEBUG
           
           path = hashfolder + "/.oneshot-expiry"      
-          log "scanning " + path, LOG_INFO
+          log "scanning " + path, LOG_DEBUG
           
           begin
             file = File.new(path, "r")
             date = file.gets
-            log "best before: " + date, LOG_INFO
+            log "best before: " + date, LOG_DEBUG
             
             date = Date.strptime(date, DATEFORMAT)
             ttl = (datify(Time.now) - date).to_i
             if ttl > 0
-              puts 'thats ' + ttl.to_s + ' days ago'
+              log '! ' + hashfolder + ' has expired ' + ttl.to_s + ' days ago', LOG_OUTPUT
+              command = "rm -r " + File.expand_path(hashfolder)
+              puts "want to execute ' " + command + "'? [yY/$NUMDAYS/nN*]"
+              #puts $stdin.gets.chomp
+         
+              val = $stdin.gets.chomp
+              if ['y','Y'].include?(val)
+                system command   
+              elsif val.to_i != 0
+                expiry = Time.now + val.to_i * 60 * 60 * 24
+                
+                File.open(path, 'w+') { |f| f.puts expiry.strftime(DATEFORMAT) }
+                log "new expiry: " + expiry.strftime(DATEFORMAT), LOG_OUTPUT
+              end
+    
             else
-              puts 'thats still ' + (- ttl).to_s + ' days to go...'
+              log hashfolder + ' is valid for another ' + (- ttl).to_s + ' days', LOG_INFO
             end
-
+            
           rescue => exc 
             log "error opening " + path, LOG_ERROR
-            STDERR.puts exc.backtrace
-            STDERR.puts exc.message
+            showexc(exc)
           end
         }
+
+        if emptydir? titlefolder
+          system "rmdir " + titlefolder 
+          log "cleaned empty folder " + titlefolder, LOG_OUTPUT
+        end
       }
+      if emptydir? datefolder
+        system "rmdir " + datefolder 
+        log "cleaned empty folder " + datefolder, LOG_OUTPUT
+      end
     }
     
   rescue => exc
     log "error scanning for outdated files. are you scanning a oneshot repo?", LOG_ERROR
-    STDERR.puts exc.backtrace
+    showexc(exc)
   end
 end
 
@@ -198,13 +229,13 @@ end
 def options_from_cmd
   log ARGV.join(' '), LOG_DEBUG
 
-  currentTransfer = Transfer.new()
+  current_transfer = Transfer.new()
   @transfers = []
   switches = nil # for scoping
   @helpswitch = Switch.new('h', 'print help message',	false, proc { switches.each { |e| puts '-' + e.char + "\t" + e.comm }; Process.exit })
   switches = [
-    Switch.new('f', 'specify remote filename for next file',	true, proc { |val| currentTransfer.path_remote = val }),
-    Switch.new('d', 'specify remote description for next file', true, proc { |val| currentTransfer.description = val }),
+    Switch.new('f', 'specify remote filename for next file',	true, proc { |val| current_transfer.path_remote = val }),
+    Switch.new('d', 'specify remote description for next file', true, proc { |val| current_transfer.description = val }),
     Switch.new('t', 'specify title used in URL',				true, proc { |val| @options.title = val }),
 
     Switch.new('x', 'specify ttl, remote file can be deleted then', true, proc { |val| @options.ttl = val }),
@@ -226,7 +257,7 @@ def options_from_cmd
     @helpswitch
   ]
 
-  onfile = proc { |filename| currentTransfer.path_local = filename; @transfers << currentTransfer; currentTransfer = Transfer.new()};
+  onfile = proc { |filename| current_transfer.path_local = filename; @transfers << current_transfer; current_transfer = Transfer.new()};
   onstuff = proc {|someswitch| log "there is no switch '#{someswitch}'\n\n", LOG_ERROR; @helpswitch.code.call; Process.exit };
   
   
