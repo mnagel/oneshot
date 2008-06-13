@@ -34,6 +34,7 @@
 # DONE fail if there is no input file...
 # TODO disallow executing uploaded scripts on server...
 # TODO dont delete listings with files, but keep meta info
+# TODO handle umlauts in local filename
 
 require 'digest/sha1'
 require 'time'
