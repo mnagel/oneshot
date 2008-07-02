@@ -35,6 +35,9 @@
 # TODO disallow executing uploaded scripts on server...
 # TODO dont delete listings with files, but keep meta info
 # TODO handle umlauts in local filename
+#
+# round 4:
+# TODO size in html listing...
 
 require 'digest/sha1'
 require 'time'
