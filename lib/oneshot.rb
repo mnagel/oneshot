@@ -37,19 +37,37 @@
 # TODO handle umlauts in local filename
 #
 # round 4:
-# TODO size in html listing...
+# DONE size in html listing...
+#
+# round 5:
+# DONE bug with running "... -s " on serverside (crashes)
+# TODO add copyright information
+#
+# round 6:
+# DONE print version in help message
 
 require 'digest/sha1'
 require 'time'
 require 'date'
 
 LOG_ERROR		= -1
-LOG_OUTPUT      =  0
+LOG_OUTPUT  =  0
 LOG_INFO		=  1
 LOG_DEBUG		=  2
 
-THEVERSION = "0.0.6"
+THEVERSION = "0.0.8"
 DATEFORMAT = "%Y-%m-%d %H:%M:%S"
+
+class Float
+  alias_method :orig_to_s, :to_s
+  def to_s(arg = nil)
+    if arg.nil?
+      orig_to_s
+    else
+      sprintf("%.#{arg}f", self)
+    end
+  end
+end
 
 def log string, loglevel
   puts string unless @options.verbosity < loglevel
@@ -112,18 +130,20 @@ end
 
 def serverside_check val
   begin
-    
-    Dir.new(val).sort {|a,b| a.to_s <=> b.to_s}.each { |datefolder|
+    dfs = Dir.new(val).sort {|a,b| a.to_s <=> b.to_s}
+    dfs.each { |datefolder|
       next if ['.', '..'].include?(datefolder)
       datefolder = File.join(val, datefolder)
       log datefolder, LOG_DEBUG
       
-      Dir.new(datefolder).sort {|a,b| a.to_s <=> b.to_s}.each { |titlefolder|
+      tfs = Dir.new(datefolder).sort {|a,b| a.to_s <=> b.to_s}
+      tfs.each { |titlefolder|
         next if ['.', '..'].include?(titlefolder)
         titlefolder = File.join(datefolder, titlefolder)
         log titlefolder, LOG_DEBUG
         
-        Dir.new(titlefolder).sort {|a,b| a.to_s <=> b.to_s}.each { |hashfolder|
+        hfs = Dir.new(titlefolder).sort {|a,b| a.to_s <=> b.to_s}
+        hfs.each { |hashfolder|
           next if ['.', '..'].include?(hashfolder)
           hashfolder = File.join(titlefolder, hashfolder)
           log hashfolder, LOG_DEBUG
@@ -143,12 +163,12 @@ def serverside_check val
               command = "rm -r " + File.expand_path(hashfolder)
               puts "want to execute ' " + command + "'? [yY/$NUMDAYS/nN*]"
               #puts $stdin.gets.chomp
-         
-              val = $stdin.gets.chomp
-              if ['y','Y'].include?(val)
+
+              ans = $stdin.gets.chomp
+              if ['y','Y'].include?(ans)
                 system command   
-              elsif val.to_i != 0
-                expiry = Time.now + val.to_i * 60 * 60 * 24
+              elsif ans.to_i != 0
+                expiry = Time.now + ans.to_i * 60 * 60 * 24
                 
                 File.open(path, 'w+') { |f| f.puts expiry.strftime(DATEFORMAT) }
                 log "new expiry: " + expiry.strftime(DATEFORMAT), LOG_OUTPUT
@@ -236,7 +256,7 @@ def options_from_cmd
   current_transfer = Transfer.new()
   @transfers = []
   switches = nil # for scoping
-  @helpswitch = Switch.new('h', 'print help message',	false, proc { switches.each { |e| puts '-' + e.char + "\t" + e.comm }; Process.exit })
+  @helpswitch = Switch.new('h', 'print help message',	false, proc { puts "this is oneshot #{THEVERSION}"; switches.each { |e| puts '-' + e.char + "\t" + e.comm }; Process.exit })
   switches = [
     Switch.new('f', 'specify remote filename for next file',	true, proc { |val| current_transfer.path_remote = val }),
     Switch.new('d', 'specify remote description for next file', true, proc { |val| current_transfer.description = val }),
@@ -256,7 +276,7 @@ def options_from_cmd
     Switch.new('v', 'increase verbosity',	false, proc { @options.verbosity += 1 }),
     Switch.new('w', 'increase fakeness',	false, proc { @options.fakeness += 1 }),
 		
-    Switch.new('i', 'create new config file',   false, proc { log(create_new_config, LOG_OUTPUT) ; Process.exit }),
+    Switch.new('i', 'create new config file, nondestructive',   false, proc { log(create_new_config, LOG_OUTPUT) ; Process.exit }),
     Switch.new('s', 'run serverside test, searching outdated files',    true, proc { |val| serverside_check val ; Process.exit }),
     @helpswitch
   ]
@@ -396,8 +416,10 @@ def generate_dir_list expiry
 		
     date = Time.now.strftime(DATEFORMAT)
     date2 = expiry.strftime(DATEFORMAT)
+    size = (File.size(t.path_local).to_f / (1024*1024)).to_s(3)
     temp += '<li>uploaded: ' + date + '</li>'
-    temp += '<li>min. online until: ' + date2 + '</li>'
+    temp += '<li>expires: ' + date2 + '</li>'
+    temp += '<li>size ' + size + ' MB</li>'
 
     hash = "sha1: " + Digest::SHA1.hexdigest(File.read(t.path_local))
     temp += '<li>' + hash + '</li>'
