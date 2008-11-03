@@ -1,4 +1,25 @@
-#!/usr/bin/env ruby 
+#!/usr/bin/env ruby
+
+=begin
+    oneshot - simple(?) file uploader
+    Copyright (C) 2008 by Michael Nagel
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+    $Id$
+
+=end
 
 # DONE generate dir-listing
 # DONE generate ttl-file
@@ -41,25 +62,37 @@
 #
 # round 5:
 # DONE bug with running "... -s " on serverside (crashes)
-# TODO add copyright information
+# DONE add copyright information
 #
 # round 6:
 # DONE print version in help message
+# TODO allow file upload via http interface (cgi-script)
+#
+# round 7:
+# TODO better look for uploaded listing...
+# TODO simplify remote folder structure
+# TODO clean up serverside-check code
 
 require 'digest/sha1'
 require 'time'
 require 'date'
 
+# log messages have a level, that decides if they will be printed
 LOG_ERROR		= -1
 LOG_OUTPUT  =  0
 LOG_INFO		=  1
 LOG_DEBUG		=  2
 
-THEVERSION = "0.0.8"
+# string denoting the current version
+THEVERSION = "$Id$, licenced under GPLv3"
+# string denoting the date format to be used
 DATEFORMAT = "%Y-%m-%d %H:%M:%S"
 
+# reopen the Float class to add some functionality
 class Float
   alias_method :orig_to_s, :to_s
+
+  # easier formatted printing, using sprtintf...
   def to_s(arg = nil)
     if arg.nil?
       orig_to_s
@@ -69,64 +102,78 @@ class Float
   end
 end
 
+class String
+  # return this string in qoutes
+  def quote
+    return '"' + self + '"'
+  end
+
+  # copied from file lib/shellwords.rb, line 69
+  # escapes a string according to sh rules
+  def shellescape str = self
+    return "''" if str.nil? # added by nailor
+    # An empty argument will be skipped, so return empty quotes.
+    return "''" if str.empty?
+
+    str = str.dup
+
+    # Process as a single byte sequence because not all shell
+    # implementations are multibyte aware.
+    str.gsub!(/([^A-Za-z0-9_\-.,:\/@\n])/n, "\\\\\\1")
+
+    # A LF cannot be escaped with a backslash because a backslash + LF
+    # combo is regarded as line continuation and simply ignored.
+    str.gsub!(/\n/, "'\n'")
+
+    return str
+  end
+
+  def asciify
+    return self.tr("^A-Za-z0-9_.\-", "_")
+  end
+end
+
+class Exception
+  def show
+    STDERR.puts "there was an error: #{self.message}"
+    STDERR.puts self.backtrace
+  end
+end
+
+# send a string to the logging system, with according log level
 def log string, loglevel
   puts string unless @options.verbosity < loglevel
 end
 
+# build a string of defined length
+# pre  : prefix
+# char : char to be repeated
+# post : postfix
+# len  : length of final string, ignored if less then pre+post
 def pad pre, char, post, len
   pre = '' if pre.nil?
   post = '' if post.nil?
   return pre + char * [len - pre.length - post.length, 0].max + post
 end
 
-def quote string
-  return '"' + string + '"'
-end
-
-def showexc exc
-  STDERR.puts exc.message
-  STDERR.puts exc.backtrace
-end
-
+# get a nice name (incl. path) for a temporary file
 def tempfilename
   hsh = Digest::SHA1.hexdigest(rand(2**32).to_s).slice(0..7)
   return "/tmp/oneshot-#{hsh}.htm"
 end
 
+# check if directory is empty
 def emptydir? dirname
   return Dir.entries(dirname).size == 2
 end
 
-# file lib/shellwords.rb, line 69
-def shellescape(str)
-  return "''" if str.nil? # added by nailor
-  # An empty argument will be skipped, so return empty quotes.
-  return "''" if str.empty?
-
-  str = str.dup
-
-  # Process as a single byte sequence because not all shell
-  # implementations are multibyte aware.
-  str.gsub!(/([^A-Za-z0-9_\-.,:\/@\n])/n, "\\\\\\1")
-
-  # A LF cannot be escaped with a backslash because a backslash + LF
-  # combo is regarded as line continuation and simply ignored.
-  str.gsub!(/\n/, "'\n'")
-
-  return str
+# remove a folder if it is empty
+def cleanup dir
+  if emptydir? dir
+    system "rmdir " + dir
+    log "cleaned empty folder " + dir, LOG_OUTPUT
+  end
 end
-
-def asciify string
-  return string.tr("^A-Za-z0-9_.\-", "_")
-end
-
-def datify time
-  # feel the pain!
-  Date.strptime(time.strftime(DATEFORMAT), DATEFORMAT)
-end
-
-@options = Struct.new(:title, :ttl, :configfile, :verbosity, :fakeness,
-  :host, :user, :port, :prefix, :httppre).new
 
 def serverside_check val
   begin
@@ -180,26 +227,28 @@ def serverside_check val
             
           rescue => exc 
             log "error opening " + path, LOG_ERROR
-            showexc(exc)
+            exc.show
           end
         }
 
-        if emptydir? titlefolder
-          system "rmdir " + titlefolder 
-          log "cleaned empty folder " + titlefolder, LOG_OUTPUT
-        end
+        cleanup titlefolder
       }
-      if emptydir? datefolder
-        system "rmdir " + datefolder 
-        log "cleaned empty folder " + datefolder, LOG_OUTPUT
-      end
+      cleanup datefolder
     }
     
   rescue => exc
     log "error scanning for outdated files. are you scanning a oneshot repo?", LOG_ERROR
-    showexc(exc)
+    exc.show
   end
 end
+
+def datify time
+  # feel the pain!
+  Date.strptime(time.strftime(DATEFORMAT), DATEFORMAT)
+end
+
+@options = Struct.new(:title, :ttl, :configfile, :verbosity, :fakeness,
+  :host, :user, :port, :prefix, :httppre).new
 
 def options_per_default
   @options.title			= nil
@@ -310,7 +359,7 @@ def options_from_cmd
 end
 
 def sanatize_options
-  @options.title = asciify(@options.title)
+  @options.title = @options.title.asciify
   @options.ttl = @options.ttl.to_s
   #@options.configfile = ENV['HOME'] + '/.nscripts/oneshot-cfg.rb'
   #@options.verbosity = 0
@@ -322,10 +371,10 @@ def sanatize_options
   #@options.httppre = nil
   
   @transfers.each { |t|
-    t.path_local  = shellescape t.path_local
+    t.path_local  = t.path_local.shellescape
     t.path_remote = t.path_local if t.path_remote.nil?
     t.path_remote = File.basename(t.path_remote)
-    t.path_remote = asciify shellescape(t.path_remote)	
+    t.path_remote = t.path_remote.shellescape.asciify
   }
 end
 
@@ -338,9 +387,9 @@ def print_options
   }
   
   @transfers.each { |t| 
-    tmp  = 'upload: '		+ quote(t.path_local)
-    tmp += ' goes to '	+ quote(t.path_remote) unless t.path_remote.nil? 
-    tmp += ' tagged '		+ quote(t.description) unless t.description.nil? 
+    tmp  = 'upload: '		+ t.path_local.quote
+    tmp += ' goes to '	+ t.path_remote.quote unless t.path_remote.nil?
+    tmp += ' tagged '		+ t.description.quote unless t.description.nil?
     log tmp, LOG_INFO
   }
 end
@@ -481,7 +530,6 @@ begin
   log @idxrem, LOG_OUTPUT if state == 0
 	
 rescue => exc
-  STDERR.puts "there was an error: #{exc.message}"
-  STDERR.puts exc.backtrace
+  exc.show
   exit 1
 end
