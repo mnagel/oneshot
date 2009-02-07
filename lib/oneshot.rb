@@ -72,6 +72,9 @@
 # TODO better look for uploaded listing...
 # TODO simplify remote folder structure
 # TODO clean up serverside-check code
+# TODO do not load complete file into memory at one time
+# DONE upload .expires FIRST (if transfer cancels)
+# TODO simplify folder structure
 
 require 'digest/sha1'
 require 'time'
@@ -79,7 +82,7 @@ require 'date'
 
 # log messages have a level, that decides if they will be printed
 LOG_ERROR		= -1
-LOG_OUTPUT  =  0
+LOG_OUTPUT              =  0
 LOG_INFO		=  1
 LOG_DEBUG		=  2
 
@@ -394,7 +397,9 @@ def print_options
   }
 end
 
-def create_sftp_commands tfn, ttlname
+# create the list of sftp-commands to be issued
+# the path to the index and expiry-file are passed
+def create_sftp_commands indexfile, expiryfile
   date = Time.now.strftime("%Y-%m-%d")
   hsh  = Digest::SHA1.hexdigest(rand(2**32).to_s).slice(0..15)
 	
@@ -406,6 +411,10 @@ def create_sftp_commands tfn, ttlname
   cmds += "cd #{@options.title}\n"
   cmds += "mkdir #{hsh}\n"
   cmds += "cd #{hsh}\n"
+  
+  # upload the expiry-file first
+  cmds += "put #{expiryfile} .oneshot-expiry\n"
+  cmds += "put #{indexfile} index.htm\n"
 	
   prefix = @options.httppre + date + '/' + @options.title + '/' + hsh + '/'
 	
@@ -414,9 +423,6 @@ def create_sftp_commands tfn, ttlname
     cmds += "chmod 644 #{t.path_remote}\n"
     t.url_http = prefix + t.path_remote
   }
-  
-  cmds += "put #{tfn} index.htm\n"
-  cmds += "put #{ttlname} .oneshot-expiry\n"
   cmds += "EOF\n"
   
   @idxrem = prefix + 'index.htm'
