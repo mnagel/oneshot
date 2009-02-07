@@ -48,14 +48,14 @@
 # TODO make remote files world-readable...
 # TODO manpages covering: naming files, usage, ... flattening of path
 # DONE check if any files...
-# TODO handle local files with spaces... cant be read because already escaped...
+# DONE handle local files with spaces... cant be read because already escaped...
 # DONE generate serverside cleanup tool, removing files that exceed ttl
 # 
 # round 3 :
 # DONE fail if there is no input file...
 # TODO disallow executing uploaded scripts on server...
 # TODO dont delete listings with files, but keep meta info
-# TODO handle umlauts in local filename
+# DONE handle umlauts in local filename
 #
 # round 4:
 # DONE size in html listing...
@@ -69,12 +69,10 @@
 # TODO allow file upload via http interface (cgi-script)
 #
 # round 7:
-# TODO better look for uploaded listing...
 # TODO simplify remote folder structure
 # TODO clean up serverside-check code
-# TODO do not load complete file into memory at one time
+# DONE do not load complete file into memory at one time
 # DONE upload .expires FIRST (if transfer cancels)
-# TODO simplify folder structure
 
 require 'digest/sha1'
 require 'time'
@@ -141,6 +139,19 @@ class Exception
     STDERR.puts "there was an error: #{self.message}"
     STDERR.puts self.backtrace
   end
+end
+
+def hashsum filename
+  bufferlength = 1024
+  hash = Digest::SHA1.new
+  
+  open(filename, "r") do |io|
+    while (!io.eof)
+      readBuf = io.readpartial(bufferlength)
+      hash.update(readBuf)
+    end
+  end
+  return hash.hexdigest
 end
 
 # send a string to the logging system, with according log level
@@ -285,8 +296,32 @@ def create_new_config
 EOT
 end
 
-Transfer = Struct.new(:path_local, :path_remote, :description, :url_http)
-Switch = Struct.new(:char, :comm, :args, :code)
+class Transfer
+  attr_accessor :path_local, :path_remote, :description, :url_http
+  
+  def initialize path_local = nil, path_remote = nil, description = nil, url_http = nil
+    @path_local   = path_local
+    @path_remote  = path_remote
+    @description  = description
+    @url_http     = url_http
+  end
+  
+  def path_local escaped = true
+    return @path_local unless escaped
+    return @path_local.shellescape
+  end
+end
+
+class Switch
+  attr_accessor :char, :comm, :args, :code
+  
+  def initialize char, comm, args, code
+    @char = char
+    @comm = comm
+    @args = args
+    @code = code
+  end
+end
 
 def options_from_file filename
   begin
@@ -374,10 +409,11 @@ def sanatize_options
   #@options.httppre = nil
   
   @transfers.each { |t|
-    t.path_local  = t.path_local.shellescape
-    t.path_remote = t.path_local if t.path_remote.nil?
+    # is escaped now automagically
+    # t.path_local  = t.path_local.shellescape 
+    t.path_remote = t.path_local(false) if t.path_remote.nil?
     t.path_remote = File.basename(t.path_remote)
-    t.path_remote = t.path_remote.shellescape.asciify
+    t.path_remote = t.path_remote.asciify.shellescape
   }
 end
 
@@ -471,12 +507,12 @@ def generate_dir_list expiry
 		
     date = Time.now.strftime(DATEFORMAT)
     date2 = expiry.strftime(DATEFORMAT)
-    size = (File.size(t.path_local).to_f / (1024*1024)).to_s(3)
+    size = (File.size(t.path_local(false)).to_f / (1024*1024)).to_s(3)
     temp += '<li>uploaded: ' + date + '</li>'
     temp += '<li>expires: ' + date2 + '</li>'
     temp += '<li>size ' + size + ' MB</li>'
-
-    hash = "sha1: " + Digest::SHA1.hexdigest(File.read(t.path_local))
+    
+    hash = "sha1: " + hashsum(t.path_local(false))
     temp += '<li>' + hash + '</li>'
 		
     temp += "</ul>\n"
