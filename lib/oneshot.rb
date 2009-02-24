@@ -38,14 +38,14 @@
 # WONTFIX warn multiple files same name
 # DONE handle spaces in filenames, remove(?) sftp does not like them
 # TODO above applies for descpription used in URL, too. its ok on html-list, though
-# TODO make nicer output (listing html)
+# DONE make nicer output (listing html)
 # DONE make nicer output (console)
 # DONE allow keyboard auth
 # TODO revise sftp return code handling
 # TODO revise sftp output redirection
 # DONE allow generation of config-file
 # TODO if local == folder -> warn, let shell glob!
-# TODO make remote files world-readable...
+# DONE make remote files world-readable...
 # TODO manpages covering: naming files, usage, ... flattening of path
 # DONE check if any files...
 # DONE handle local files with spaces... cant be read because already escaped...
@@ -53,7 +53,7 @@
 # 
 # round 3 :
 # DONE fail if there is no input file...
-# TODO disallow executing uploaded scripts on server...
+# WONTFIX disallow executing uploaded scripts on server...
 # TODO dont delete listings with files, but keep meta info
 # DONE handle umlauts in local filename
 #
@@ -73,6 +73,7 @@
 # TODO clean up serverside-check code
 # DONE do not load complete file into memory at one time
 # DONE upload .expires FIRST (if transfer cancels)
+# TODO thumnails / icons in html listing // gallery-mode
 
 require 'digest/sha1'
 require 'time'
@@ -466,59 +467,113 @@ def create_sftp_commands indexfile, expiryfile
   return cmds
 end
 
-def generate_dir_list_helper subject, table
+def transferstring transfer, expiry
+  ending = File.extname(transfer.path_local(false))
+  ending.slice!(0)
+  ending = "empty" if ending.nil? or ending.length < 1
+  ending.downcase!
+  
   <<EOT
-<?xml version="1.0" ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+  <table border="0">
+    <tr>
+      <td rowspan="2">
+        <a class="nodeco" href="#{transfer.path_remote}">
+          <img class="nodeco" src="http://nailor.devzero.de/mime/#{ending}.png" alt="mime #{ending}" width="128" height="128"/>
+        </a>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <h2><a href="#{transfer.path_remote}">#{transfer.path_remote}</a></h2>
+        <a class="hanging" href="javascript:show('xx#{transfer.path_remote}')">&rarr; details</a>
+      </td>
+    </tr>
+  </table>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
-  <head>
-    <title>oneshot - upload - #{subject}</title>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    <style type="text/css">
-      * { 
-       font-family: monospace; 
-      }
-	  ul {
-		  padding-bottom: 1.5em;
-	  }
-    </style>
-  </head>
-  <body>
-
-    <h1>oneshot - upload - #{subject}</h1>
-    <div>
-		#{table}
-		</div>
-
-  </body>
-</html>
+    <ul id="xx#{transfer.path_remote}" style="display:none;">
+    <li #{'style="display:none;"' if transfer.description.nil?}>
+                  #{transfer.description.nil? ? "" : transfer.description}                </li>
+    <li>uploaded: #{Time.now.strftime(DATEFORMAT)}                                        </li>
+    <li>expires:  #{expiry.strftime(DATEFORMAT)}                                          </li>
+    <li>size      #{(File.size(transfer.path_local(false)).to_f / (1024*1024)).to_s(3)} MB</li>
+    <li>sha1:     #{hashsum(transfer.path_local(false))}                                  </li>
+    </ul>
 EOT
 end
 
-def generate_dir_list expiry
-  table = @transfers.map { |t|
-    temp = ''
-    temp += '<h2><a href="' + t.path_remote + '">' + t.path_remote + '</a></h2>'
-	
-    temp +='<ul>'
-		
-    temp += '<li>' + t.description + '</li>' unless t.description.nil?
-		
-    date = Time.now.strftime(DATEFORMAT)
-    date2 = expiry.strftime(DATEFORMAT)
-    size = (File.size(t.path_local(false)).to_f / (1024*1024)).to_s(3)
-    temp += '<li>uploaded: ' + date + '</li>'
-    temp += '<li>expires: ' + date2 + '</li>'
-    temp += '<li>size ' + size + ' MB</li>'
-    
-    hash = "sha1: " + hashsum(t.path_local(false))
-    temp += '<li>' + hash + '</li>'
-		
-    temp += "</ul>\n"
+def generate_dir_list expiry 
+  table = ''
+  
+  @transfers.each { |t|
+    table += transferstring(t, expiry)
   }
 	
-  result = generate_dir_list_helper @options.title, table
+  result =   <<EOT
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" 
+   "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <title>oneshot - upload - #{@options.title}</title>
+
+<style type="text/css">
+body { background-color: #4F7E9E; }
+* { font-family: sans-serif; }
+
+pre { font-family: monospace; }
+ul { margin-left: 1.0em; margin-bottom: 0.1em; }
+
+h1 { color: #000000; margin-left: 0.1em; margin-top: 0.2em; }
+h2 { color: #000000; }
+
+hr { color: #E6DACF; background-color: #E6DACF; height: 0.1em; border: 0; }
+
+a { color: black; text-decoration: none; font-weight: bold; }
+a:hover { color: #E6DACF; }
+
+.pre { font-family: monospace; }
+.nodeco { text-decoration: none; border: 0 }
+.hanging { margin-left: 0.5em; margin-top: 0px; }
+.invisible { color: #4F7E9E; }
+</style>
+
+<script type="text/javascript">
+ //<![CDATA[
+
+  function show(what) {
+    if (document.getElementById(what).style.display=='none')
+      document.getElementById(what).style.display='block';
+    else
+      document.getElementById(what).style.display='none';
+  }
+
+ //]]>
+</script>
+</head>
+
+<body>
+    <table border="0">
+      <tr>
+        <td>
+          <a class="nodeco" href="http://validator.w3.org/check?uri=referer">
+            <img class="nodeco" src="http://www.w3.org/Icons/valid-xhtml11-blue" alt="Valid XHTML 1.1" height="31" width="88" />
+          </a>
+        </td>
+        <td><h1>oneshot - upload - #{@options.title}</h1></td>
+      </tr>
+    </table>
+
+    <div>
+      #{table}
+    </div>
+
+  <div class="invisible">
+    <a class="invisible" href="http://gnome-look.org/content/show.php?content=81153">icons from buuf1.04.3</a> 
+    <a class="invisible" href="http://creativecommons.org/licenses/by-nc-sa/3.0/deed.de">icons licensed under Creative Commons BY-NC-SA</a>
+  </div>
+</body>
+</html>
+EOT
 	
   log result, LOG_DEBUG
   return result
