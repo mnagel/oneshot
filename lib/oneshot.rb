@@ -73,7 +73,9 @@
 # TODO clean up serverside-check code
 # DONE do not load complete file into memory at one time
 # DONE upload .expires FIRST (if transfer cancels)
-# TODO thumnails / icons in html listing // gallery-mode
+# DONE icons in html listing 
+# TODO thumbs in html listing // gallery-mode
+# TODO show upload progress...
 
 require 'digest/sha1'
 require 'time'
@@ -289,6 +291,7 @@ def create_new_config
 # @options.configfile = ENV['HOME'] + '/.oneshot-cfg.rb'
 # @options.verbosity = 0
 # @options.fakeness = 0
+# use @options.host = nil # to trigger local copying of the file, ignoring user&port
 @options.host = "myhost.example"  if @options.host.nil?
 # @options.user = nil
 @options.prefix = "var/www/oneshot/"  if @options.prefix.nil?
@@ -354,7 +357,7 @@ def options_from_cmd
 
     Switch.new('c', 'specify local configfile', true, proc { |val| @options.configfile = val }),
 
-    Switch.new('o', 'specify sftp host',        	true, proc { |val| @options.host = val }),
+    Switch.new('o', 'specify sftp host, "nil" triggers local copying, ignoring user&port',        	true, proc { |val| @options.host = val }),
     Switch.new('u', 'specify sftp user',			true, proc { |val| @options.user = val }),
     Switch.new('l', 'specify remote base location',	true, proc { |val| @options.prefix = val }),
     Switch.new('p', 'specify sftp port',			true, proc { |val| @options.port = val }),
@@ -432,39 +435,6 @@ def print_options
     tmp += ' tagged '		+ t.description.quote unless t.description.nil?
     log tmp, LOG_INFO
   }
-end
-
-# create the list of sftp-commands to be issued
-# the path to the index and expiry-file are passed
-def create_sftp_commands indexfile, expiryfile
-  date = Time.now.strftime("%Y-%m-%d")
-  hsh  = Digest::SHA1.hexdigest(rand(2**32).to_s).slice(0..15)
-	
-  cmds  = ""
-  cmds += "EOF\n"
-  cmds += "-mkdir #{date}\n"
-  cmds += "cd #{date}\n"
-  cmds += "-mkdir #{@options.title}\n"
-  cmds += "cd #{@options.title}\n"
-  cmds += "mkdir #{hsh}\n"
-  cmds += "cd #{hsh}\n"
-  
-  # upload the expiry-file first
-  cmds += "put #{expiryfile} .oneshot-expiry\n"
-  cmds += "put #{indexfile} index.htm\n"
-	
-  prefix = @options.httppre + date + '/' + @options.title + '/' + hsh + '/'
-	
-  @transfers.each { |t|
-    cmds += "put #{t.path_local} #{t.path_remote}\n"
-    cmds += "chmod 644 #{t.path_remote}\n"
-    t.url_http = prefix + t.path_remote
-  }
-  cmds += "EOF\n"
-  
-  @idxrem = prefix + 'index.htm'
-  
-  return cmds
 end
 
 def transferstring transfer, expiry
@@ -579,22 +549,96 @@ EOT
   return result
 end
 
-def run_sftp commands
-  real_command = "sftp -C #{@options.host}#{':' + @options.prefix} 1> /dev/null 2>/dev/null << #{commands}"
-  log real_command, LOG_INFO
-  log '### oneshot: calling sftp ###', LOG_DEBUG
-  system real_command if @options.fakeness == 0
-  log '### oneshot: called  sftp ###', LOG_DEBUG
-  state = $?
-  log "command returned: " + state.to_s, LOG_INFO
-  log "SFTP ERROR!!!", LOG_ERROR unless state == 0 
-  log '----- ----- ----- -----', LOG_INFO
-	  
-  @transfers.each { |t|
-    log t.url_http, LOG_INFO
-  } if state == 0
-	
-  return state
+class Uploader
+  def initialize options, transfers, indexfile, ttlfile
+    @options, @transfers, @indexfile, @ttlfile = options, transfers, indexfile, ttlfile
+  end  
+end
+
+class SFTPUploader < Uploader
+  # create the list of sftp-commands to be issued
+  # the path to the index and expiry-file are passed
+  def create_sftp_commands indexfile, expiryfile
+    date = Time.now.strftime("%Y-%m-%d")
+    hsh  = Digest::SHA1.hexdigest(rand(2**32).to_s).slice(0..15)
+    
+    cmds  = ""
+    cmds += "EOF\n"
+    cmds += "-mkdir #{date}\n"
+    cmds += "cd #{date}\n"
+    cmds += "-mkdir #{@options.title}\n"
+    cmds += "cd #{@options.title}\n"
+    cmds += "mkdir #{hsh}\n"
+    cmds += "cd #{hsh}\n"
+    
+    # upload the expiry-file first
+    cmds += "put #{expiryfile} .oneshot-expiry\n"
+    cmds += "put #{indexfile} index.htm\n"
+    
+    prefix = @options.httppre + date + '/' + @options.title + '/' + hsh + '/'
+    
+    @transfers.each { |t|
+      cmds += "put #{t.path_local} #{t.path_remote}\n"
+      cmds += "chmod 644 #{t.path_remote}\n"
+      t.url_http = prefix + t.path_remote
+    }
+    cmds += "EOF\n"
+    
+    $idxrem = prefix + 'index.htm'
+    
+    return cmds
+  end
+  
+  def run_sftp commands
+    real_command = "sftp -C #{@options.host}#{':' + @options.prefix} 1> /dev/null 2>/dev/null << #{commands}"
+    log real_command, LOG_INFO
+    log '### oneshot: calling sftp ###', LOG_DEBUG
+    system real_command if @options.fakeness == 0
+    log '### oneshot: called  sftp ###', LOG_DEBUG
+    state = $?
+    log "command returned: " + state.to_s, LOG_INFO
+    log "SFTP ERROR!!!", LOG_ERROR unless state == 0 
+    log '----- ----- ----- -----', LOG_INFO
+    
+    @transfers.each { |t|
+      log t.url_http, LOG_INFO
+    } if state == 0
+    
+    return state
+  end
+  
+  def run!
+    sftp_commands = create_sftp_commands @indexfile, @ttlfile
+    state = -1
+    state = run_sftp sftp_commands
+    log $idxrem, LOG_OUTPUT if state == 0
+  end
+end
+
+class LocalUploader < Uploader
+  require 'fileutils'
+  
+  def run!
+    date = Time.now.strftime("%Y-%m-%d")
+    hsh  = Digest::SHA1.hexdigest(rand(2**32).to_s).slice(0..15)
+    
+    dir = "#{@options.prefix}/#{date}/#{@options.title}/#{hsh}/"
+    dirhttp = "#{@options.httppre}/#{date}/#{@options.title}/#{hsh}/"
+    FileUtils.makedirs(dir)
+    
+    FileUtils.cp(@ttlfile, "#{dir}/.oneshot-expiry")
+    FileUtils.cp(@indexfile, "#{dir}/index.htm")
+    
+    
+    @transfers.each { |t|
+      FileUtils.cp(t.path_local(false), dir + t.path_remote)
+      File.chmod(0644, dir + t.path_remote)
+      t.url_http = dirhttp + t.path_remote
+    }
+    
+    idxrem = dirhttp + 'index.htm'
+    log idxrem, LOG_OUTPUT
+  end
 end
 
 begin
@@ -616,16 +660,19 @@ begin
   expiry = Time.now + @options.ttl.to_f * 60 * 60 * 24
   log "expires on " + expiry.strftime(DATEFORMAT), LOG_INFO
   
-  sftp_commands = create_sftp_commands tempfile_list, tempfile_expire
   htmllist = generate_dir_list expiry
   
   File.open(tempfile_list, 'w+') { |f| f.puts htmllist } 
   File.open(tempfile_expire, 'w+') { |f| f.puts expiry.strftime(DATEFORMAT) } 
-	
-  state = -1
-  state = run_sftp sftp_commands
-  log @idxrem, LOG_OUTPUT if state == 0
-	
+  
+  if @options.host.nil?
+    x = LocalUploader.new(@options, @transfers, tempfile_list, tempfile_expire)
+    x.run!
+  else
+    x = SFTPUploader.new(@options, @transfers, tempfile_list, tempfile_expire)
+    x.run!
+    
+  end  
 rescue => exc
   exc.show
   exit 1
