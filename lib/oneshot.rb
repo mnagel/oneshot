@@ -1,25 +1,29 @@
 #!/usr/bin/env ruby
 
-=begin
-    oneshot - simple(?) file uploader
-    Copyright (C) 2008 by Michael Nagel
+#
+#
+#-wKU
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-    $Id$
-
-=end
+#=begin
+#    oneshot - simple(?) file uploader
+#    Copyright (C) 2008 by Michael Nagel
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#    $Id$
+#
+#=end
 
 # DONE generate dir-listing
 # DONE generate ttl-file
@@ -76,6 +80,7 @@
 # DONE icons in html listing 
 # TODO thumbs in html listing // gallery-mode
 # TODO show upload progress...
+# TODO update for ruby 1.9
 
 require 'digest/sha1'
 require 'time'
@@ -270,7 +275,11 @@ end
 def options_per_default
   @options.title			= nil
   @options.ttl				= 30
-  @options.configfile		= ENV['HOME'] + '/.oneshot-cfg.rb'
+  @options.configfile = nil
+  begin
+    @options.configfile		= ENV['HOME'] + '/.oneshot-cfg.rb'
+  rescue
+  end
   @options.verbosity		= 0
   @options.fakeness			= 0
   @options.host				= nil
@@ -310,6 +319,7 @@ class Transfer
     @url_http     = url_http
   end
   
+  # TODO : this is rededined...
   def path_local escaped = true
     return @path_local unless escaped
     return @path_local.shellescape
@@ -438,7 +448,7 @@ def print_options
 end
 
 def transferstring transfer, expiry
-  ending = File.extname(transfer.path_local(false))
+  ending = File.extname(transfer.path_remote)
   ending.slice!(0)
   ending = "empty" if ending.nil? or ending.length < 1
   ending.downcase!
