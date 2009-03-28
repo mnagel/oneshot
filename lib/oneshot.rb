@@ -81,6 +81,7 @@
 # TODO thumbs in html listing // gallery-mode
 # TODO show upload progress...
 # TODO update for ruby 1.9
+# TODO report failures during upload...
 
 require 'digest/sha1'
 require 'time'
@@ -88,7 +89,7 @@ require 'date'
 
 # log messages have a level, that decides if they will be printed
 LOG_ERROR		= -1
-LOG_OUTPUT              =  0
+LOG_OUTPUT  =  0
 LOG_INFO		=  1
 LOG_DEBUG		=  2
 
@@ -146,6 +147,7 @@ class Exception
   def show
     STDERR.puts "there was an error: #{self.message}"
     STDERR.puts self.backtrace
+    STDERR.puts "(invoked as $PROG #{ARGV.join(' ')})"
   end
 end
 

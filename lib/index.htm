@@ -1,15 +1,70 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-  <head>
-    <title>File upload</title>
-    <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
-  </head>
-  <body>
-    <form name='fileupload' enctype="multipart/form-data"
-    action='./file_upload.cgi' method='post'>
-    <input type='file' name='myfile' size="40" />
-    <input type='submit' value="Send it"/>
-    </form>
-  </body>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+
+        <!--
+    TODO look better
+    -->
+
+        <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+        <title>oneshot - upload</title>
+
+        <style type="text/css">
+            body { background-color: #4F7E9E; }
+            * { font-family: sans-serif; }
+
+            pre { font-family: monospace; }
+            ul { margin-left: 1.0em; margin-bottom: 0.1em; }
+
+            h1 { color: #000000; margin-left: 0.1em; margin-top: 0.2em; }
+            h2 { color: #000000; }
+
+            hr { color: #E6DACF; background-color: #E6DACF; height: 0.1em; border: 0; }
+
+            a { color: black; text-decoration: none; font-weight: bold; }
+            a:hover { color: #E6DACF; }
+
+            .pre { font-family: monospace; }
+            .nodeco { text-decoration: none; border: 0 }
+            .hanging { margin-left: 0.5em; margin-top: 0px; }
+            .invisible { color: #4F7E9E; }
+        </style>
+
+        <script type="text/javascript">
+            //<![CDATA[
+
+            function show(what) {
+                if (document.getElementById(what).style.display=='none')
+                    document.getElementById(what).style.display='block';
+                else
+                    document.getElementById(what).style.display='none';
+            }
+
+            //]]>
+        </script>
+    </head>
+
+    <body>
+
+        <table border="0">
+            <tr>
+                <td>
+                    <a class="nodeco" href="http://validator.w3.org/check?uri=referer">
+                        <img class="nodeco" src="http://www.w3.org/Icons/valid-xhtml11-blue" alt="Valid XHTML 1.1" height="31" width="88" />
+                    </a>
+                </td>
+                <td><h1>oneshot - upload - untitled</h1></td>
+
+            </tr>
+        </table>
+
+        <form name='fileupload' enctype="multipart/form-data"
+              action='./file_upload.cgi' method='post'>
+                  
+            <input type='file' name='myfile' size="40" /> &nbsp;
+            <input type='submit' value="Send it"/>
+        </form>
+
+    </body>
 </html>
