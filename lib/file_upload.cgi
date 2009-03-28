@@ -5,6 +5,7 @@
 
 # TODO include logging -- send mail!
 
+COMMAND = "/home/nailor/bin/oneshot-ng"
 CONFIGFILE = "/home/nailor/.oneshot-cfg-local.rb"
 
 require 'cgi'
@@ -122,7 +123,7 @@ begin
 
 
     filename = fn
-    cmd = "/home/nailor/bin/oneshot-ng -c #{CONFIGFILE} -f #{orig} #{filename}"
+    cmd = "#{COMMAND} -c #{CONFIGFILE} -f #{orig} #{filename}"
     puts2 "running #{cmd}"
     a = %x[#{cmd}]
     puts2 "command run #{a}"
