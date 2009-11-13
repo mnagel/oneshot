@@ -1,9 +1,5 @@
 #!/usr/bin/env ruby
 
-#
-#
-#-wKU
-
 #=begin
 #    oneshot - simple(?) file uploader
 #    Copyright (C) 2008 by Michael Nagel
@@ -70,7 +66,7 @@
 #
 # round 6:
 # DONE print version in help message
-# TODO allow file upload via http interface (cgi-script)
+# DONE allow file upload via http interface (cgi-script)
 #
 # round 7:
 # TODO simplify remote folder structure
@@ -82,6 +78,10 @@
 # TODO show upload progress...
 # TODO update for ruby 1.9
 # TODO report failures during upload...
+# TODO dont use sha1 but something better
+# DONE better explain x switch (days...)
+# TODO include browser agent / http headers in mail
+# DONE instead of "unknown" put the filename in title/url
 
 require 'digest/sha1'
 require 'time'
@@ -365,7 +365,7 @@ def options_from_cmd
     Switch.new('d', 'specify remote description for next file', true, proc { |val| current_transfer.description = val }),
     Switch.new('t', 'specify title used in URL',				true, proc { |val| @options.title = val }),
 
-    Switch.new('x', 'specify ttl, remote file can be deleted then', true, proc { |val| @options.ttl = val }),
+    Switch.new('x', 'specify ttl, days until remote file may be removed', true, proc { |val| @options.ttl = val }),
 
     Switch.new('c', 'specify local configfile', true, proc { |val| @options.configfile = val }),
 
@@ -413,6 +413,11 @@ def options_from_cmd
 end
 
 def sanatize_options
+  if @options.title.nil? or @options.title == "untitled"
+    unless @transfers.nil? or @transfers.length == 0
+      @options.title = File.basename(@transfers.first.path_local(false))
+    end
+  end
   @options.title = @options.title.asciify
   @options.ttl = @options.ttl.to_s
   #@options.configfile = ENV['HOME'] + '/.nscripts/oneshot-cfg.rb'
@@ -452,7 +457,7 @@ end
 def transferstring transfer, expiry
   ending = File.extname(transfer.path_remote)
   ending.slice!(0)
-  ending = "empty" if ending.nil? or ending.length < 1
+  ending = "empty" if ending.nil? or ending.length < 1 # TODO check against whitelist to disable inclusion of abitrary files...
   ending.downcase!
   
   <<EOT
