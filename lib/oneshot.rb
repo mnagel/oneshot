@@ -74,7 +74,7 @@
 # DONE do not load complete file into memory at one time
 # DONE upload .expires FIRST (if transfer cancels)
 # DONE icons in html listing 
-# TODO thumbs in html listing // gallery-mode
+# DONE thumbs in html listing // gallery-mode
 # TODO show upload progress...
 # TODO update for ruby 1.9
 # TODO report failures during upload...
@@ -82,6 +82,14 @@
 # DONE better explain x switch (days...)
 # TODO include browser agent / http headers in mail
 # DONE instead of "unknown" put the filename in title/url
+
+# round 8:
+# TODO display proper filename in url when using web-frontend
+
+# round 9:
+# TODO split code in classes/modules/...
+# TODO add testcases
+# TODO start external readme file
 
 require 'digest/sha1'
 require 'time'
@@ -167,6 +175,96 @@ end
 # send a string to the logging system, with according log level
 def log string, loglevel
   puts string unless @options.verbosity < loglevel
+end
+
+# send a string to the logging system, with according log level
+def log_bad_encapsulation string, loglevel # FIXME drop this function and fix the one above
+  puts string #unless @options.verbosity < loglevel
+end
+
+class Thumbnails
+
+  def self.dim imgpath
+    require 'GD' # sudo apt-get install libgd-ruby
+    type = get_image_type(imgpath)
+    src = GD::Image.send("new_from_#{type}", imgpath)
+    return src.width, src.height
+  end
+
+  def self.create path_input, path_output
+    require 'GD' # sudo apt-get install libgd-ruby
+    srcfile = path_input
+
+    if srcfile.match(/\//) || !File.exists?(srcfile)
+      log "cannot create thumbnail of nonexistent file", LOG_ERROR
+      System.exit(-1)
+    end
+
+    type = get_image_type(srcfile)
+    res = 128
+    thumbfile = path_output
+
+    src = GD::Image.send("new_from_#{type}", srcfile)
+    h = res
+    w = (src.width * h / src.height).to_i
+
+
+    dest = GD::Image.newTrueColor(w, h)
+    src.copyResized(dest, 0, 0, 0, 0, w, h, src.width, src.height)
+
+    File.open(thumbfile, 'w') {|f| dump_image(dest, type, f)}
+  end
+
+  def self.get_image_type(path)
+    case path
+    when /\.jpe?g$/i then 'jpeg'
+    when /\.png$/i   then 'png'
+    when /\.gif$/i   then 'gif'
+    else raise "cannot figure file type of #{path}"
+    end
+  end
+
+  def self.dump_image(img, type, stream)
+    type == 'jpeg' ? img.send(type, stream, (img.width > 800) ? 85 : 75) : img.send(type, stream)
+  end
+
+  def initialize
+    @enabled = false
+    @mytrans = []
+  end
+
+  def enable
+    @enabled = true
+  end
+
+  def add_file transfer
+    return unless @enabled
+    tname = transfer.path_local + ".thumb.jpg"
+    tpath = "/tmp/oneshot-#{tname}"
+    Thumbnails.create(transfer.path_local, tpath)
+    @mytrans << Transfer.new(tpath, tname, "internal thumbnail", "no url")
+  end
+
+  def get_my_transfers
+    return [] unless @enabled
+    return @mytrans
+  end
+
+  def index_thumb_url transfer, defaultthumb
+    return defaultthumb unless @enabled
+    return tname = transfer.path_local + ".thumb.jpg"
+  end
+
+  def index_thumb_width transfer, defaultsize
+    return defaultsize unless @enabled
+    tname = transfer.path_local + ".thumb.jpg"
+    tpath = "/tmp/oneshot-#{tname}"
+
+    w,h = Thumbnails.dim(tpath)
+    # log_bad_encapsulation "w #{w} -- h #{h}", LOG_DEBUG
+    return w
+  end
+
 end
 
 # build a string of defined length
@@ -282,13 +380,13 @@ def options_per_default
     @options.configfile		= ENV['HOME'] + '/.oneshot-cfg.rb'
   rescue
   end
-  @options.verbosity		= 0
-  @options.fakeness			= 0
-  @options.host				= nil
-  @options.user				= nil
-  @options.prefix			= nil
-  @options.port             = nil
-  @options.httppre			= nil
+  @options.verbosity = 0
+  @options.fakeness  = 0
+  @options.host      = nil
+  @options.user      = nil
+  @options.prefix    = nil
+  @options.port      = nil
+  @options.httppre   = nil
 end
 
 def create_new_config
@@ -378,7 +476,9 @@ def options_from_cmd
 
     Switch.new('v', 'increase verbosity',	false, proc { @options.verbosity += 1 }),
     Switch.new('w', 'increase fakeness',	false, proc { @options.fakeness += 1 }),
-		
+
+    Switch.new('g', 'gallery with jpg thumbs',	false, proc { $thumbs.enable }),
+
     Switch.new('i', 'create new config file, nondestructive',   false, proc { log(create_new_config, LOG_OUTPUT) ; Process.exit }),
     Switch.new('s', 'run serverside test, searching outdated files',    true, proc { |val| serverside_check val ; Process.exit }),
     @helpswitch
@@ -459,13 +559,16 @@ def transferstring transfer, expiry
   ending.slice!(0)
   ending = "empty" if ending.nil? or ending.length < 1 # TODO check against whitelist to disable inclusion of abitrary files...
   ending.downcase!
-  
+
+  thumburl = $thumbs.index_thumb_url transfer, "http://nailor.devzero.de/mime/#{ending}.png"
+  thumbwidth = $thumbs.index_thumb_width transfer, 128
+
   <<EOT
   <table border="0">
     <tr>
       <td rowspan="2">
         <a class="nodeco" href="#{transfer.path_remote}">
-          <img class="nodeco" src="http://nailor.devzero.de/mime/#{ending}.png" alt="mime #{ending}" width="128" height="128"/>
+          <img class="nodeco" src="#{thumburl}" alt="mime #{ending}" width="#{thumbwidth.to_s}" height="128"/>
         </a>
       </td>
     </tr>
@@ -599,6 +702,11 @@ class SFTPUploader < Uploader
       cmds += "chmod 644 #{t.path_remote}\n"
       t.url_http = prefix + t.path_remote
     }
+
+    $thumbs.get_my_transfers.each { |t|
+      cmds += "put #{t.path_local} #{t.path_remote}\n"
+      cmds += "chmod 644 #{t.path_remote}\n"
+    }
     cmds += "EOF\n"
     
     $idxrem = prefix + 'index.htm'
@@ -652,6 +760,12 @@ class LocalUploader < Uploader
       File.chmod(0644, dir + t.path_remote)
       t.url_http = dirhttp + t.path_remote
     }
+
+
+    $thumbs.get_my_transfers.each { |t|
+      FileUtils.cp(t.path_local(false), dir + t.path_remote)
+      File.chmod(0644, dir + t.path_remote)
+    }
     
     idxrem = dirhttp + 'index.htm'
     log idxrem, LOG_OUTPUT
@@ -659,6 +773,7 @@ class LocalUploader < Uploader
 end
 
 begin
+  $thumbs = Thumbnails.new
   options_per_default
   options_from_cmd
   options_from_file @options.configfile
@@ -670,6 +785,10 @@ begin
     log "found no files to transfer\n\n", LOG_ERROR
     @helpswitch.code.call	
   end
+
+  @transfers.each { |transfer|
+    $thumbs.add_file(transfer)
+  }
   
   tempfile_list = tempfilename
   tempfile_expire = tempfilename + '.ttl'
