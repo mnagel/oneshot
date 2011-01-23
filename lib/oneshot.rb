@@ -2,7 +2,7 @@
 
 #=begin
 #    oneshot - simple(?) file uploader
-#    Copyright (C) 2008 by Michael Nagel
+#    Copyright (C) 2008, 2009, 2010, 2011 by Michael Nagel
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -16,8 +16,6 @@
 #
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
-#    $Id$
 #
 #=end
 
@@ -90,6 +88,8 @@
 # TODO split code in classes/modules/...
 # TODO add testcases
 # TODO start external readme file
+# TODO oneshot: user wird nicht aus config-datei übernommen!
+# TODO make gallery mode work with some jpgs and some non-thumbnailable files
 
 require 'digest/sha1'
 require 'time'
@@ -102,7 +102,7 @@ LOG_INFO		=  1
 LOG_DEBUG		=  2
 
 # string denoting the current version
-THEVERSION = "$Id$, licenced under GPLv3"
+THEVERSION = "$oneshot.rb 365 2011-01-23 $, licenced under GPLv3"
 # string denoting the date format to be used
 DATEFORMAT = "%Y-%m-%d %H:%M:%S"
 
