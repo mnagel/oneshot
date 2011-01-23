@@ -5,6 +5,9 @@
 # TODO include logging -- send mail!
 # TODO allow multiple files
 # TODO problems with no file at all...
+# TODO offer (protected) file listing
+# TODO cgi multifile upload http://rakaz.nl/2009/08/uploading-multiple-files-using-html5.html
+# TODO catch error if folder is not writable
 
 # send a mail to the authors
 def report_feedback string="", subject=""
@@ -117,7 +120,7 @@ begin
   url = %x[#{cmd}]
 
   print cgi.header({'status'=>'REDIRECT', 'Location'=>url})
-  report_feedback "they say it landed at: \n#{url}", "finish"
+  report_feedback "they say it landed at: \n#{url}\n and contains: #{name_it}", "finish"
 
 rescue => eee
   fire
