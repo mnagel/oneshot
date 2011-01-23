@@ -88,8 +88,12 @@
 # TODO split code in classes/modules/...
 # TODO add testcases
 # TODO start external readme file
-# TODO oneshot: user wird nicht aus config-datei übernommen!
+# TODO user wird nicht aus config-datei übernommen!
 # TODO make gallery mode work with some jpgs and some non-thumbnailable files
+
+# round 10:
+# TODO explain file_upload.cgi, config-files it requires
+# TODO clean up todo list
 
 require 'digest/sha1'
 require 'time'

@@ -8,6 +8,7 @@
 # TODO offer (protected) file listing
 # TODO cgi multifile upload http://rakaz.nl/2009/08/uploading-multiple-files-using-html5.html
 # TODO catch error if folder is not writable
+# TODO explain config files
 
 # send a mail to the authors
 def report_feedback string="", subject=""
