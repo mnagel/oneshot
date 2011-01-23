@@ -1,7 +1,7 @@
-#COMMAND    = "oneshot"
-#CONFIGFILE = "/home/www-data/.oneshot-cfg-local.rb"
+# TODO make clear that this is only for file_upload.cgi
 
 fn = "config.local.rb"
+
 if FileTest.exists?(fn)
   require fn
 else
