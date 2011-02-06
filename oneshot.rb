@@ -24,10 +24,10 @@ require 'time'
 require 'date'
 
 # log messages have a level, that decides if they will be printed
-LOG_ERROR		= -1
-LOG_OUTPUT  =  0
-LOG_INFO		=  1
-LOG_DEBUG		=  2
+LOG_ERROR  = -1
+LOG_OUTPUT =  0
+LOG_INFO   =  1
+LOG_DEBUG  =  2
 
 # string denoting the current version
 THEVERSION = "$oneshot.rb 365 2011-01-23 $, licenced under GPLv3"
@@ -347,7 +347,7 @@ class Transfer
     @url_http     = url_http
   end
   
-  # TODO : this is rededined...
+  # TODO : this is redefined...
   def path_local escaped = true
     return @path_local unless escaped
     return @path_local.shellescape
