@@ -88,7 +88,7 @@
 # TODO split code in classes/modules/...
 # TODO add testcases
 # TODO start external readme file
-# TODO user wird nicht aus config-datei übernommen!
+# DONE user wird nicht aus config-datei übernommen!
 # TODO make gallery mode work with some jpgs and some non-thumbnailable files
 
 # round 10:
@@ -528,7 +528,7 @@ def sanatize_options
   #@options.verbosity = 0
   #@options.fakeness = 0
   #@options.host = nil
-  #@options.user = nil
+  #@options.user = nil # TODO set to something sane if it was empty.
   @options.prefix = '' if @options.prefix.nil?
   @options.port = @options.port.to_s unless @options.port.nil?
   #@options.httppre = nil
@@ -719,7 +719,7 @@ class SFTPUploader < Uploader
   end
   
   def run_sftp commands
-    real_command = "sftp -C #{@options.host}#{':' + @options.prefix} 1> /dev/null 2>/dev/null << #{commands}"
+    real_command = "sftp -C #{@options.user}@#{@options.host}#{':' + @options.prefix} 1> /dev/null 2>/dev/null << #{commands}"
     log real_command, LOG_INFO
     log '### oneshot: calling sftp ###', LOG_DEBUG
     system real_command if @options.fakeness == 0
