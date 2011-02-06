@@ -1,0 +1,22 @@
+- document code
+- revise verbosity
+- revise fakeness
+- remove temporary files in /tmp
+- include information about oneshot into html listing
+- handle spaces for descpription used in URL, too. its ok on html-list, though
+- revise sftp return code handling
+- revise sftp output redirection
+- if local == folder -> warn, let shell glob!
+- create manpages covering: naming files, usage, ... flattening of path
+- dont delete listings when deleting files, but keep meta info
+- simplify remote folder structure
+- clean up serverside-check code
+- show upload progress...
+- update for ruby 1.9
+- report failures during upload...
+- dont use sha1 but something better
+- include browser agent / http headers in mail
+- display proper filename in url when using web-frontend
+- split code in classes/modules/...
+- add testcases
+- make gallery mode work with some jpgs and some non-thumbnailable files
