@@ -8,11 +8,13 @@
     -->
 
         <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
-        <title>oneshot - upload</title>
+        <title>oneshot: upload</title>
 
         <style type="text/css">
             body { background-color: #4F7E9E; }
             * { font-family: sans-serif; }
+            
+            div { margin-bottom: 3em; }
 
             pre { font-family: monospace; }
             ul { margin-left: 1.0em; margin-bottom: 0.1em; }
@@ -30,23 +32,11 @@
             .hanging { margin-left: 0.5em; margin-top: 0px; }
             .invisible { color: #4F7E9E; }
         </style>
-
-        <script type="text/javascript">
-            //<![CDATA[
-
-            function show(what) {
-                if (document.getElementById(what).style.display=='none')
-                    document.getElementById(what).style.display='block';
-                else
-                    document.getElementById(what).style.display='none';
-            }
-
-            //]]>
-        </script>
     </head>
 
     <body>
 
+		<div>
         <table border="0">
             <tr>
                 <td>
@@ -54,8 +44,8 @@
                         <img class="nodeco" src="http://www.w3.org/Icons/valid-xhtml11-blue" alt="Valid XHTML 1.1" height="31" width="88" />
                     </a>
                 </td>
-                <td><h1>oneshot - upload - untitled</h1></td>
-
+                <td><h1>oneshot: upload a new file</h1>
+                </td>
             </tr>
         </table>
 
@@ -63,8 +53,13 @@
               action='./upload.cgi' method='post'>
 
             <input type='file' name='myfile' size="40" /> &nbsp;
-            <input type='submit' value="Send it"/>
+            <input type='submit' value="Upload File!"/>
         </form>
+        </div>
+        
+        <div>After completing the upload you will be redirected to the download
+        page for your file.<br />You can send the address of that page to other
+        people to let them download your file.</div>
 
     </body>
 </html>
