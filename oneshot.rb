@@ -30,7 +30,7 @@ LOG_INFO   =  1
 LOG_DEBUG  =  2
 
 # string denoting the current version
-THEVERSION = "$oneshot.rb 365 2011-01-23 $, licenced under GPLv3"
+THEVERSION = "oneshot 2011-02-06, licenced under GPLv3"
 # string denoting the date format to be used
 DATEFORMAT = "%Y-%m-%d %H:%M:%S"
 
