@@ -1,4 +1,4 @@
-# TODO make clear that this is only for file_upload.cgi
+# TODO make clear that this is only for upload.cgi
 
 COMMAND = "/home/nailor/bin/oneshot"
 CONFIGFILE = "/home/nailor/.oneshot-cfg-local.rb"
