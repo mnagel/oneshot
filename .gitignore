@@ -1,6 +1,2 @@
-# ignored content
-/doc/
-/nbproject/private/
-
 # local config
-/lib/config.local.rb
+config.local.rb
