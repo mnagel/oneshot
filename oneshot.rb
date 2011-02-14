@@ -643,7 +643,15 @@ class SFTPUploader < Uploader
   end
   
   def run_sftp commands
-    real_command = "sftp -C #{@options.user}@#{@options.host}#{':' + @options.prefix} 1> /dev/null 2>/dev/null << #{commands}"
+    verbosity_switch = ""
+    output_redirection = "1> /dev/null 2>/dev/null"
+    if @options.verbosity >= LOG_DEBUG
+      verbosity_switch = "-v"
+      output_redirection = ""
+    end
+    user_string = ""
+    user_string = @options.user + "@" unless @options.user.nil?
+    real_command = "sftp #{verbosity_switch} -C #{user_string}#{@options.host}#{':' + @options.prefix} #{output_redirection} << #{commands}"
     log real_command, LOG_INFO
     log '### oneshot: calling sftp ###', LOG_DEBUG
     system real_command if @options.fakeness == 0
