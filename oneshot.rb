@@ -30,7 +30,7 @@ LOG_INFO   =  1
 LOG_DEBUG  =  2
 
 # string denoting the current version
-THEVERSION = "oneshot 2011-02-14, licenced under GPLv3"
+THEVERSION = "oneshot 2011-03-28, licenced under GPLv3+"
 # string denoting the date format to be used
 DATEFORMAT = "%Y-%m-%d %H:%M:%S"
 
@@ -113,47 +113,22 @@ end
 class Thumbnails
 
   def self.dim imgpath
-    require 'GD' # sudo apt-get install libgd-ruby
-    type = get_image_type(imgpath)
-    src = GD::Image.send("new_from_#{type}", imgpath)
-    return src.width, src.height
+    cmd = "identify -format '%w' #{imgpath.shellescape}"
+    w = %x(#{cmd}).to_i
+
+    cmd = "identify -format '%h' #{imgpath.shellescape}"
+    h = %x(#{cmd}).to_i
+    return w, h
   end
 
   def self.create path_input, path_output
-    require 'GD' # sudo apt-get install libgd-ruby
-    srcfile = path_input
-
-    if srcfile.match(/\//) || !File.exists?(srcfile)
-      log "cannot create thumbnail of nonexistent file", LOG_ERROR
-      System.exit(-1)
+    if path_input.match(/\//) || !File.exists?(path_input)
+      log_bad_encapsulation "cannot create thumbnail: file #{path_input} does not exist.", LOG_ERROR
+      exit(-1)
     end
 
-    type = get_image_type(srcfile)
-    res = 128
-    thumbfile = path_output
-
-    src = GD::Image.send("new_from_#{type}", srcfile)
-    h = res
-    w = (src.width * h / src.height).to_i
-
-
-    dest = GD::Image.newTrueColor(w, h)
-    src.copyResized(dest, 0, 0, 0, 0, w, h, src.width, src.height)
-
-    File.open(thumbfile, 'w') {|f| dump_image(dest, type, f)}
-  end
-
-  def self.get_image_type(path)
-    case path
-    when /\.jpe?g$/i then 'jpeg'
-    when /\.png$/i   then 'png'
-    when /\.gif$/i   then 'gif'
-    else raise "cannot figure file type of #{path}"
-    end
-  end
-
-  def self.dump_image(img, type, stream)
-    type == 'jpeg' ? img.send(type, stream, (img.width > 800) ? 85 : 75) : img.send(type, stream)
+    cmd = "convert -thumbnail 'x128' #{path_input.shellescape} #{path_output.shellescape}"
+    w = %x(#{cmd})
   end
 
   def initialize
@@ -169,7 +144,7 @@ class Thumbnails
     return unless @enabled
     tname = transfer.path_local + ".thumb.jpg"
     tpath = "/tmp/oneshot-#{tname}"
-    Thumbnails.create(transfer.path_local, tpath)
+    Thumbnails.create(transfer.path_local(false), tpath)
     @mytrans << Transfer.new(tpath, tname, "internal thumbnail", "no url")
   end
 
@@ -189,7 +164,6 @@ class Thumbnails
     tpath = "/tmp/oneshot-#{tname}"
 
     w,h = Thumbnails.dim(tpath)
-    # log_bad_encapsulation "w #{w} -- h #{h}", LOG_DEBUG
     return w
   end
 
