@@ -1,3 +1,12 @@
+BUGS
+michaelnagel@ventabook:~/bin$ oneshot
+config file not found
+there was an error: undefined method `asciify' for nil:NilClass
+/Users/michaelnagel/bin/oneshot:449:in `sanatize_options'
+/Users/michaelnagel/bin/oneshot:717
+(invoked as $PROG )
+
+WISHES
 - document code
 - revise verbosity
 - revise fakeness
