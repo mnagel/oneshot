@@ -90,7 +90,7 @@ end
 def hashsum filename
   bufferlength = 1024
   hash = Digest::SHA1.new
-  
+
   open(filename, "r") do |io|
     while (!io.eof)
       readBuf = io.readpartial(bufferlength)
@@ -206,27 +206,27 @@ def serverside_check val
       next if ['.', '..'].include?(datefolder)
       datefolder = File.join(val, datefolder)
       log datefolder, LOG_DEBUG
-      
+
       tfs = Dir.new(datefolder).sort {|a,b| a.to_s <=> b.to_s}
       tfs.each { |titlefolder|
         next if ['.', '..'].include?(titlefolder)
         titlefolder = File.join(datefolder, titlefolder)
         log titlefolder, LOG_DEBUG
-        
+
         hfs = Dir.new(titlefolder).sort {|a,b| a.to_s <=> b.to_s}
         hfs.each { |hashfolder|
           next if ['.', '..'].include?(hashfolder)
           hashfolder = File.join(titlefolder, hashfolder)
           log hashfolder, LOG_DEBUG
-          
-          path = hashfolder + "/.oneshot-expiry"      
+
+          path = hashfolder + "/.oneshot-expiry"
           log "scanning " + path, LOG_DEBUG
-          
+
           begin
             file = File.new(path, "r")
             date = file.gets
             log "best before: " + date, LOG_DEBUG
-            
+
             date = Date.strptime(date, DATEFORMAT)
             ttl = (datify(Time.now) - date).to_i
             if ttl > 0
@@ -237,19 +237,19 @@ def serverside_check val
 
               ans = $stdin.gets.chomp
               if ['y','Y'].include?(ans)
-                system command   
+                system command
               elsif ans.to_i != 0
                 expiry = Time.now + ans.to_i * 60 * 60 * 24
-                
+
                 File.open(path, 'w+') { |f| f.puts expiry.strftime(DATEFORMAT) }
                 log "new expiry: " + expiry.strftime(DATEFORMAT), LOG_OUTPUT
               end
-    
+
             else
               log hashfolder + ' is valid for another ' + (- ttl).to_s + ' days', LOG_INFO
             end
-            
-          rescue => exc 
+
+          rescue => exc
             log "error opening " + path, LOG_ERROR
             exc.show
           end
@@ -259,7 +259,7 @@ def serverside_check val
       }
       cleanup datefolder
     }
-    
+
   rescue => exc
     log "error scanning for outdated files. are you scanning a oneshot repo?", LOG_ERROR
     exc.show
@@ -313,14 +313,14 @@ end
 
 class Transfer
   attr_accessor :path_local, :path_remote, :description, :url_http
-  
+
   def initialize path_local = nil, path_remote = nil, description = nil, url_http = nil
     @path_local   = path_local
     @path_remote  = path_remote
     @description  = description
     @url_http     = url_http
   end
-  
+
   # TODO : this is redefined...
   def path_local escaped = true
     return @path_local unless escaped
@@ -330,7 +330,7 @@ end
 
 class Switch
   attr_accessor :char, :comm, :args, :code
-  
+
   def initialize char, comm, args, code
     @char = char
     @comm = comm
@@ -388,9 +388,8 @@ def options_from_cmd
 
   onfile = proc { |filename| current_transfer.path_local = filename; @transfers << current_transfer; current_transfer = Transfer.new()};
   onstuff = proc {|someswitch| log "there is no switch '#{someswitch}'\n\n", LOG_ERROR; @helpswitch.code.call; Process.exit };
-  
-  
-  notargs = [] 
+
+  notargs = []
 
   ARGV.each_index { |i|
     next if notargs.include?(i)
@@ -400,7 +399,7 @@ def options_from_cmd
     if arg[0..0] == '-'
       arg[1..-1].scan(/./) do |chr|
         myswitch = switches.find {|s| s.char == chr}
-        onstuff.call(chr) if myswitch.nil? 
+        onstuff.call(chr) if myswitch.nil?
         if myswitch.args
           myswitch.code.call(ARGV[i+1])
           notargs << i+1
@@ -409,7 +408,7 @@ def options_from_cmd
         end
       end
     else
-      onfile.call(ARGV[i])	  
+      onfile.call(ARGV[i])
     end
   }
 end
@@ -430,10 +429,10 @@ def sanatize_options
   @options.prefix = '' if @options.prefix.nil?
   @options.port = @options.port.to_s unless @options.port.nil?
   #@options.httppre = nil
-  
+
   @transfers.each { |t|
     # is escaped now automagically
-    # t.path_local  = t.path_local.shellescape 
+    # t.path_local  = t.path_local.shellescape
     t.path_remote = t.path_local(false) if t.path_remote.nil?
     t.path_remote = File.basename(t.path_remote)
     t.path_remote = t.path_remote.asciify.shellescape
@@ -447,8 +446,8 @@ def print_options
     val = val.to_s
     log pad(name, ' ', nil, 10) + " = " + val.to_s, LOG_INFO
   }
-  
-  @transfers.each { |t| 
+
+  @transfers.each { |t|
     tmp  = 'upload: '		+ t.path_local.quote
     tmp += ' goes to '	+ t.path_remote.quote unless t.path_remote.nil?
     tmp += ' tagged '		+ t.description.quote unless t.description.nil?
@@ -493,15 +492,15 @@ def transferstring transfer, expiry
 EOT
 end
 
-def generate_dir_list expiry 
+def generate_dir_list expiry
   table = ''
-  
+
   @transfers.each { |t|
     table += transferstring(t, expiry)
   }
-	
+
   result =   <<EOT
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" 
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
    "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -560,13 +559,13 @@ a:hover { color: #E6DACF; }
     </div>
 
   <div class="invisible">
-    <a class="invisible" href="http://gnome-look.org/content/show.php?content=81153">icons from buuf1.04.3</a> 
+    <a class="invisible" href="http://gnome-look.org/content/show.php?content=81153">icons from buuf1.04.3</a>
     <a class="invisible" href="http://creativecommons.org/licenses/by-nc-sa/3.0/deed.de">icons licensed under Creative Commons BY-NC-SA</a>
   </div>
 </body>
 </html>
 EOT
-	
+
   log result, LOG_DEBUG
   return result
 end
@@ -574,7 +573,7 @@ end
 class Uploader
   def initialize options, transfers, indexfile, ttlfile
     @options, @transfers, @indexfile, @ttlfile = options, transfers, indexfile, ttlfile
-  end  
+  end
 end
 
 class SFTPUploader < Uploader
@@ -583,7 +582,7 @@ class SFTPUploader < Uploader
   def create_sftp_commands indexfile, expiryfile
     date = Time.now.strftime("%Y-%m-%d")
     hsh  = Digest::SHA1.hexdigest(rand(2**32).to_s).slice(0..15)
-    
+
     cmds  = ""
     cmds += "EOF\n"
     cmds += "-mkdir #{date}\n"
@@ -592,13 +591,13 @@ class SFTPUploader < Uploader
     cmds += "cd #{@options.title}\n"
     cmds += "mkdir #{hsh}\n"
     cmds += "cd #{hsh}\n"
-    
+
     # upload the expiry-file first
     cmds += "put #{expiryfile} .oneshot-expiry\n"
     cmds += "put #{indexfile} index.htm\n"
-    
+
     prefix = @options.httppre + date + '/' + @options.title + '/' + hsh + '/'
-    
+
     @transfers.each { |t|
       cmds += "put #{t.path_local} #{t.path_remote}\n"
       cmds += "chmod 644 #{t.path_remote}\n"
@@ -610,12 +609,12 @@ class SFTPUploader < Uploader
       cmds += "chmod 644 #{t.path_remote}\n"
     }
     cmds += "EOF\n"
-    
+
     $idxrem = prefix + 'index.htm'
-    
+
     return cmds
   end
-  
+
   def run_sftp commands
     verbosity_switch = ""
     output_redirection = "1> /dev/null 2>/dev/null"
@@ -632,16 +631,16 @@ class SFTPUploader < Uploader
     log '### oneshot: called  sftp ###', LOG_DEBUG
     state = $?
     log "command returned: " + state.to_s, LOG_INFO
-    log "SFTP ERROR!!!", LOG_ERROR unless state == 0 
+    log "SFTP ERROR!!!", LOG_ERROR unless state == 0
     log '----- ----- ----- -----', LOG_INFO
-    
+
     @transfers.each { |t|
       log t.url_http, LOG_INFO
     } if state == 0
-    
+
     return state
   end
-  
+
   def run!
     sftp_commands = create_sftp_commands @indexfile, @ttlfile
     state = -1
@@ -652,19 +651,18 @@ end
 
 class LocalUploader < Uploader
   require 'fileutils'
-  
+
   def run!
     date = Time.now.strftime("%Y-%m-%d")
     hsh  = Digest::SHA1.hexdigest(rand(2**32).to_s).slice(0..15)
-    
+
     dir = "#{@options.prefix}/#{date}/#{@options.title}/#{hsh}/"
     dirhttp = "#{@options.httppre}/#{date}/#{@options.title}/#{hsh}/"
     FileUtils.makedirs(dir)
-    
+
     FileUtils.cp(@ttlfile, "#{dir}/.oneshot-expiry")
     FileUtils.cp(@indexfile, "#{dir}/index.htm")
-    
-    
+
     @transfers.each { |t|
       FileUtils.cp(t.path_local(false), dir + t.path_remote)
       File.chmod(0644, dir + t.path_remote)
@@ -676,7 +674,7 @@ class LocalUploader < Uploader
       FileUtils.cp(t.path_local(false), dir + t.path_remote)
       File.chmod(0644, dir + t.path_remote)
     }
-    
+
     idxrem = dirhttp + 'index.htm'
     log idxrem, LOG_OUTPUT
   end
@@ -687,38 +685,37 @@ begin
   options_per_default
   options_from_cmd
   options_from_file @options.configfile
-  
+
   sanatize_options
   print_options
-	
+
   if @transfers.empty?
     log "found no files to transfer\n\n", LOG_ERROR
-    @helpswitch.code.call	
+    @helpswitch.code.call
   end
 
   @transfers.each { |transfer|
     $thumbs.add_file(transfer)
   }
-  
+
   tempfile_list = tempfilename
   tempfile_expire = tempfilename + '.ttl'
-  
+
   expiry = Time.now + @options.ttl.to_f * 60 * 60 * 24
   log "expires on " + expiry.strftime(DATEFORMAT), LOG_INFO
-  
+
   htmllist = generate_dir_list expiry
-  
-  File.open(tempfile_list, 'w+') { |f| f.puts htmllist } 
-  File.open(tempfile_expire, 'w+') { |f| f.puts expiry.strftime(DATEFORMAT) } 
-  
+
+  File.open(tempfile_list, 'w+') { |f| f.puts htmllist }
+  File.open(tempfile_expire, 'w+') { |f| f.puts expiry.strftime(DATEFORMAT) }
+
   if @options.host.nil?
     x = LocalUploader.new(@options, @transfers, tempfile_list, tempfile_expire)
     x.run!
   else
     x = SFTPUploader.new(@options, @transfers, tempfile_list, tempfile_expire)
     x.run!
-    
-  end  
+  end
 rescue => exc
   exc.show
   exit 1
