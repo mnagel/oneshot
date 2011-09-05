@@ -624,7 +624,9 @@ class SFTPUploader < Uploader
     end
     user_string = ""
     user_string = @options.user + "@" unless @options.user.nil?
-    real_command = "sftp #{verbosity_switch} -C #{user_string}#{@options.host}#{':' + @options.prefix} #{output_redirection} << #{commands}"
+    port_string = ""
+    port_string = "-oPort=#{@options.port}" unless @options.port.nil?
+    real_command = "sftp #{verbosity_switch} #{port_string} -C #{user_string}#{@options.host}#{':' + @options.prefix} #{output_redirection} << #{commands}"
     log real_command, LOG_INFO
     log '### oneshot: calling sftp ###', LOG_DEBUG
     system real_command if @options.fakeness == 0
