@@ -142,10 +142,9 @@ class Thumbnails
 
   def add_file transfer
     return unless @enabled
-    tname = transfer.path_local + ".thumb.jpg"
-    tpath = "/tmp/oneshot-#{tname}"
-    Thumbnails.create(transfer.path_local(false), tpath)
-    @mytrans << Transfer.new(tpath, tname, "internal thumbnail", "no url")
+    localpath = transfer.path_local(false)
+    Thumbnails.create(localpath, Thumbnails.local_thumb_path(localpath))
+    @mytrans << Transfer.new(Thumbnails.local_thumb_path(localpath), Thumbnails.local_thumb_name(localpath), "internal thumbnail", "no url")
   end
 
   def get_my_transfers
@@ -153,15 +152,22 @@ class Thumbnails
     return @mytrans
   end
 
+  def self.local_thumb_name local_name
+  	  return local_name.asciify + ".thumb.jpg"
+  end
+
+  def self.local_thumb_path local_name
+  	  return "/tmp/oneshot-#{Thumbnails.local_thumb_name(local_name)}"
+  end
+
   def index_thumb_url transfer, defaultthumb
     return defaultthumb unless @enabled
-    return tname = transfer.path_local + ".thumb.jpg"
+    return Thumbnails.local_thumb_name(transfer.path_local(false))
   end
 
   def index_thumb_width transfer, defaultsize
     return defaultsize unless @enabled
-    tname = transfer.path_local + ".thumb.jpg"
-    tpath = "/tmp/oneshot-#{tname}"
+    tpath = Thumbnails.local_thumb_path(transfer.path_local(false))
 
     w,h = Thumbnails.dim(tpath)
     return w
