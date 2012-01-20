@@ -364,9 +364,9 @@ def options_from_cmd
 
   current_transfer = Transfer.new()
   @transfers = []
-  switches = nil # for scoping
+  @switches = nil # for scoping
   @helpswitch = Switch.new('h', 'print help message',	false, proc { puts "this is oneshot #{THEVERSION}"; switches.each { |e| puts '-' + e.char + "\t" + e.comm }; Process.exit })
-  switches = [
+  @switches = [
     Switch.new('f', 'specify remote filename for next file',	true, proc { |val| current_transfer.path_remote = val }),
     Switch.new('d', 'specify remote description for next file', true, proc { |val| current_transfer.description = val }),
     Switch.new('t', 'specify title used in URL',				true, proc { |val| @options.title = val }),
@@ -404,19 +404,24 @@ def options_from_cmd
 
     if arg[0..0] == '-'
       arg[1..-1].scan(/./) do |chr|
-        myswitch = switches.find {|s| s.char == chr}
-        onstuff.call(chr) if myswitch.nil?
-        if myswitch.args
-          myswitch.code.call(ARGV[i+1])
-          notargs << i+1
-        else
-          myswitch.code.call
-        end
+        notargs << i+1 if call_switch(chr, ARGV[i+1])
       end
     else
       onfile.call(ARGV[i])
     end
   }
+end
+
+def call_switch chr, argument
+  myswitch = @switches.find {|s| s.char == chr}
+  onstuff.call(chr) if myswitch.nil?
+  if myswitch.args
+    myswitch.code.call(argument)
+    return true
+  else
+    myswitch.code.call
+    return false
+  end
 end
 
 def sanatize_options
