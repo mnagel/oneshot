@@ -366,7 +366,7 @@ def options_from_cmd
   current_transfer = Transfer.new()
   @transfers = []
   @switches = nil # for scoping
-  @helpswitch = Switch.new('h', 'print help message',	false, proc { puts "this is oneshot #{THEVERSION}"; switches.each { |e| puts '-' + e.char + "\t" + e.comm }; Process.exit })
+  @helpswitch = Switch.new('h', 'print help message',	false, proc { puts "this is oneshot #{THEVERSION}"; @switches.each { |e| puts '-' + e.char + "\t" + e.comm }; Process.exit })
   @switches = [
     Switch.new('f', 'specify remote filename for next file',	true, proc { |val| current_transfer.path_remote = val }),
     Switch.new('d', 'specify remote description for next file', true, proc { |val| current_transfer.description = val }),
