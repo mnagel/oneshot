@@ -26,8 +26,9 @@ require 'date'
 # log messages have a level, that decides if they will be printed
 LOG_ERROR  = -1
 LOG_OUTPUT =  0
-LOG_INFO   =  1
-LOG_DEBUG  =  2
+LOG_FILES  =  1
+LOG_INFO   =  2
+LOG_DEBUG  =  3
 
 # string denoting the current version
 THEVERSION = "oneshot 2011-03-28, licenced under GPLv3+"
@@ -654,7 +655,7 @@ class SFTPUploader < Uploader
     log '----- ----- ----- -----', LOG_INFO
 
     @transfers.each { |t|
-      log t.url_http, LOG_INFO
+      log t.url_http, LOG_FILES
     } if state == 0
 
     return state
