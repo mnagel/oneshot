@@ -385,6 +385,12 @@ def options_from_cmd
     Switch.new('v', 'increase verbosity',	false, proc { @options.verbosity += 1 }),
     Switch.new('w', 'increase fakeness',	false, proc { @options.fakeness += 1 }),
 
+    Switch.new('b', 'pastebin mode opens a textedit window', false,
+      proc { f = '/tmp/oneshotpastebin'
+             msg = `kdialog --textinputbox "Please paste the text to upload here:" "" 300 300 > #{f}`;
+             @onfile.call(f)
+      }
+    ),
     Switch.new('g', 'gallery with jpg thumbs',	false, proc { $thumbs.enable }),
 
     Switch.new('i', 'create new config file, nondestructive',   false, proc { log(create_new_config, LOG_OUTPUT) ; Process.exit }),
@@ -392,7 +398,7 @@ def options_from_cmd
     @helpswitch
   ]
 
-  onfile = proc { |filename| current_transfer.path_local = filename; @transfers << current_transfer; current_transfer = Transfer.new()};
+  @onfile = proc { |filename| current_transfer.path_local = filename; @transfers << current_transfer; current_transfer = Transfer.new()};
   onstuff = proc {|someswitch| log "there is no switch '#{someswitch}'\n\n", LOG_ERROR; @helpswitch.code.call; Process.exit };
 
   notargs = []
@@ -407,7 +413,7 @@ def options_from_cmd
         notargs << i+1 if call_switch(chr, ARGV[i+1])
       end
     else
-      onfile.call(ARGV[i])
+      @onfile.call(ARGV[i])
     end
   }
 end
