@@ -386,7 +386,7 @@ def options_from_cmd
     Switch.new('w', 'increase fakeness',	false, proc { @options.fakeness += 1 }),
 
     Switch.new('b', 'pastebin mode opens a textedit window', false,
-      proc { f = '/tmp/oneshotpastebin'
+      proc { f = '/tmp/oneshot.pastebin.txt'
              msg = `kdialog --textinputbox "Please paste the text to upload here:" "" 300 300 > #{f}`;
              @onfile.call(f)
       }
