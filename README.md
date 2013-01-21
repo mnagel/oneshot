@@ -1,23 +1,28 @@
 # oneshot
 
-oneshot allows you to upload files via SSH (SFTP) easily
-and provides HTTP(S) links to download them
-if the remote site supports it.
+Upload files via SSH (SFTP) easily and provide HTTP(S) links to download them.
 
-Only SFTP access and a properly configured webserver
+SFTP access and a properly configured webserver
 are required on the server side.
 
 All files are tagged with an expiry date
-and obsolete files can be removed on demand.
+so obsolete files can be removed on demand.
 
 ## Installation
 
 Make the script executable and drop it somewhere in your $PATH.
+
 Run ```oneshot -i``` to create a new configuration file.
 
 ## Usage
 
-Usage: clustergit [options] filenames...
+```
+# standard usage
+clustergit [options] filenames...
+
+# pastebin mode
+clustergit -b
+```
 
 ## Options
 
