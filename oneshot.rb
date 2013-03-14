@@ -634,6 +634,10 @@ class SFTPUploader < Uploader
   end
 
   def run_sftp commands
+    @transfers.each { |t|
+      log t.url_http, LOG_FILES
+    }
+
     verbosity_switch = ""
     output_redirection = "1> /dev/null 2>/dev/null"
     if @options.verbosity >= LOG_DEBUG
@@ -653,10 +657,6 @@ class SFTPUploader < Uploader
     log "command returned: " + state.to_s, LOG_INFO
     log "SFTP ERROR!!!", LOG_ERROR unless state == 0
     log '----- ----- ----- -----', LOG_INFO
-
-    @transfers.each { |t|
-      log t.url_http, LOG_FILES
-    } if state == 0
 
     return state
   end
