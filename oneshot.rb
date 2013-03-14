@@ -289,7 +289,7 @@ def options_per_default
     @options.configfile		= ENV['HOME'] + '/.oneshot-cfg.rb'
   rescue
   end
-  @options.verbosity = 0
+  @options.verbosity = 1 # LOG_FILES
   @options.fakeness  = 0
   @options.host      = nil
   @options.user      = nil
@@ -307,7 +307,7 @@ def create_new_config
 @options.title = 'untitled' if @options.title.nil?
 # @options.ttl = 30
 # @options.configfile = ENV['HOME'] + '/.oneshot-cfg.rb'
-# @options.verbosity = 0
+# @options.verbosity = 1 # LOG_FILES
 # @options.fakeness = 0
 # use @options.host = nil # to trigger local copying of the file, ignoring user&port
 @options.host = "myhost.example"  if @options.host.nil?
