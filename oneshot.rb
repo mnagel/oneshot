@@ -479,7 +479,7 @@ def transferstring transfer, expiry
   ending = "empty" if ending.nil? or ending.length < 1 # TODO check against whitelist to disable inclusion of abitrary files...
   ending.downcase!
 
-  thumburl = $thumbs.index_thumb_url transfer, "http://nailor.devzero.de/mime/#{ending}.png"
+  thumburl = $thumbs.index_thumb_url transfer, "http://mnagel.net/mime/mime/#{ending}.png"
   thumbwidth = $thumbs.index_thumb_width transfer, 128
 
   <<EOT
