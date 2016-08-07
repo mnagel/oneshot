@@ -637,6 +637,7 @@ class SFTPUploader < Uploader
     @transfers.each { |t|
       log t.url_http, LOG_FILES
     }
+    log $idxrem, LOG_OUTPUT
 
     verbosity_switch = ""
     output_redirection = "1> /dev/null 2>/dev/null"
@@ -663,9 +664,7 @@ class SFTPUploader < Uploader
 
   def run!
     sftp_commands = create_sftp_commands @indexfile, @ttlfile
-    state = -1
-    state = run_sftp sftp_commands
-    log $idxrem, LOG_OUTPUT if state == 0
+    run_sftp sftp_commands
   end
 end
 
