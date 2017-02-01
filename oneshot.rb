@@ -123,7 +123,7 @@ class Thumbnails
   end
 
   def self.create path_input, path_output
-    if path_input.match(/\//) || !File.exists?(path_input)
+    if !File.exists?(path_input)
       log_bad_encapsulation "cannot create thumbnail: file #{path_input} does not exist.", LOG_ERROR
       exit(-1)
     end
